@@ -1,0 +1,123 @@
+/* =====================================================================
+   Dashboard Rapat
+   ===================================================================== */
+
+/* Kepala halaman */
+.dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.dash-head h1{margin:0;font-size:21px;font-weight:600;color:var(--navy)}
+.dash-head .sub{margin:3px 0 0;font-size:13px;color:var(--abu)}
+
+/* Pemilih bulan */
+.rentang{display:inline-flex;align-items:stretch;background:#fff;border:1px solid #bfc6d0;border-radius:3px}
+.rentang-nav{display:grid;place-items:center;width:32px;text-decoration:none;font-size:18px;color:var(--abu)}
+.rentang-nav:hover{background:var(--latar);color:var(--navy)}
+.rentang-isi{position:relative;display:flex;align-items:center;margin:0;padding:0 14px;border-left:1px solid var(--garis);border-right:1px solid var(--garis)}
+.rentang-teks{font-size:13px;font-weight:500;white-space:nowrap;line-height:32px}
+.rentang .rentang-bulan{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer}
+.rentang .rentang-bulan::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+
+/* Periode cepat */
+.preset{margin:0 0 14px;font-size:13px;color:var(--abu)}
+.preset a{margin-left:12px;color:var(--biru);text-decoration:underline;text-underline-offset:2px}
+.preset a:first-of-type{margin-left:8px}
+.preset a:hover{color:var(--biru-tua)}
+
+/* Tab: garis bawah */
+.tabs{display:flex;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--garis)}
+.tab{padding:8px 14px;margin-bottom:-1px;border-bottom:2px solid transparent;font-size:13.5px;color:var(--abu);text-decoration:none}
+a.tab:hover{color:var(--navy)}
+.tab.aktif{color:var(--navy);font-weight:600;border-bottom-color:var(--biru)}
+.tab.mati{color:#a3aab6;cursor:not-allowed}
+
+/* Ringkasan: satu strip, bukan empat kartu */
+.ringkas{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:14px;background:#fff;border:1px solid var(--garis);border-radius:4px}
+.rk{padding:14px 18px;border-left:1px solid var(--garis)}
+.rk:first-child{border-left:0}
+.rk-label{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--abu)}
+.rk b{display:block;margin-top:4px;font-size:30px;font-weight:600;line-height:1.1;color:var(--navy);font-variant-numeric:tabular-nums}
+.rk-sub{display:block;margin-top:3px;font-size:12.5px;color:var(--abu)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.dot.hijau{background:var(--hijau)}.dot.biru{background:var(--biru)}.dot.merah{background:var(--merah)}
+.delta{font-weight:500}
+.delta.naik{color:var(--hijau)}.delta.turun{color:var(--merah)}
+
+/* Panel */
+.panel{background:#fff;border:1px solid var(--garis);border-radius:4px;padding:14px 16px;box-shadow:none}
+.panel h3{margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid var(--garis-halus);font-size:14px;font-weight:600;color:var(--navy)}
+.grid-tiga{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.grid-bawah{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;align-items:start}
+.kolom-kanan{display:flex;flex-direction:column;gap:14px}
+
+/* Grafik */
+.chart-tren{height:200px}
+.status-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.donat{position:relative;width:138px;height:138px;flex:none}
+.donat-tengah{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.donat-tengah b{font-size:24px;font-weight:600;line-height:1;color:var(--navy)}
+.donat-tengah span{font-size:12px;color:var(--abu)}
+.legenda{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:8px}
+.legenda i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px}
+.legenda em{font-style:normal;color:var(--abu)}
+.catatan-status{margin:10px 0 0;font-size:12px;color:var(--abu)}
+
+/* Kehadiran */
+.hadir-besar b{display:block;font-size:40px;font-weight:600;line-height:1;color:var(--navy);font-variant-numeric:tabular-nums}
+.hadir-besar span{display:block;margin-top:4px;font-size:13px;color:var(--abu)}
+.bar{height:6px;margin:14px 0;background:var(--tebal);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--hijau)}
+.hadir-angka{display:flex;gap:28px;margin:0}
+.hadir-angka dt{font-size:12.5px;color:var(--abu)}
+.hadir-angka dd{margin:2px 0 0;font-size:18px;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums}
+
+/* Daftar nama peserta yang hadir */
+.daftar-hadir{margin-top:14px;padding-top:10px;border-top:1px solid var(--garis-halus)}
+.daftar-hadir summary{cursor:pointer;list-style:none;font-size:13px;color:var(--biru)}
+.daftar-hadir summary::-webkit-details-marker{display:none}
+.daftar-hadir summary::before{content:"▸";display:inline-block;margin-right:6px;transition:transform .15s}
+.daftar-hadir[open] summary::before{transform:rotate(90deg)}
+.daftar-hadir summary:hover{color:var(--biru-tua)}
+.daftar-hadir ol{list-style:none;counter-reset:peserta;margin:10px 0 0;padding:0;max-height:260px;overflow:auto;font-size:13px;color:var(--navy)}
+.daftar-hadir li{counter-increment:peserta;display:flex;align-items:flex-start;gap:8px;padding:6px 8px 6px 0;border-bottom:1px solid var(--garis-halus)}
+.daftar-hadir li:last-child{border-bottom:0}
+.daftar-hadir li::before{content:counter(peserta) ".";flex:none;min-width:22px;color:var(--abu);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.daftar-hadir .nm{flex:1;min-width:0;word-break:break-word}
+.daftar-hadir .nm small{display:block;font-size:12px;color:var(--abu)}
+.daftar-hadir .kali{flex:none;font-size:12.5px;color:var(--abu);font-variant-numeric:tabular-nums}
+.kosong-hadir{margin:10px 0 0;font-size:13px;color:var(--abu)}
+.filter-hadir{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.filter-hadir select,.filter-hadir input{width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #bfc6d0;border-radius:3px;background:#fff;font:inherit;font-size:13px;color:var(--navy)}
+.filter-hadir select:focus,.filter-hadir input:focus{outline:2px solid var(--biru);outline-offset:-1px}
+
+/* Tabel unit */
+.tabel-scroll{max-height:330px;overflow:auto;margin:0 -16px -14px}
+.tabel-unit th,.tabel-unit td{padding:8px 12px;font-size:13px}
+.tabel-unit th:first-child,.tabel-unit td:first-child{padding-left:16px}
+.tabel-unit th{position:sticky;top:0}
+.tabel-unit .c{text-align:center;font-variant-numeric:tabular-nums}
+.tabel-unit .nol{color:#a3aab6}
+.tabel-unit .n-hijau{color:var(--hijau);font-weight:600}
+.tabel-unit .n-biru{color:var(--biru);font-weight:600}
+.tabel-unit .n-merah{color:var(--merah);font-weight:600}
+.tabel-unit .kosong{text-align:center;color:var(--abu);padding:24px}
+
+/* Notulensi & dokumentasi */
+.rekap{margin:0}
+.rekap div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--garis-halus);font-size:13.5px}
+.rekap div:last-child{border-bottom:0}
+.rekap dt{color:var(--abu)}
+.rekap dd{margin:0;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums}
+.rekap dd small{font-weight:400;color:var(--abu)}
+.tombol-unduh{display:block;text-align:center;padding:11px;border-radius:3px;background:var(--biru);color:#fff;font-size:13.5px;font-weight:500;text-decoration:none}
+.tombol-unduh:hover{background:var(--biru-tua)}
+
+@media (max-width:1150px){
+  .ringkas{grid-template-columns:repeat(2,1fr)}
+  .rk:nth-child(3){border-left:0}
+  .rk:nth-child(n+3){border-top:1px solid var(--garis)}
+  .grid-tiga,.grid-bawah{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .ringkas{grid-template-columns:1fr}
+  .rk{border-left:0;border-top:1px solid var(--garis)}
+  .rk:first-child{border-top:0}
+}

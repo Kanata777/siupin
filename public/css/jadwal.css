@@ -1,0 +1,141 @@
+/* ===== Header ===== */
+.jadwal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.jadwal-judul{display:flex;align-items:center;gap:12px}
+.ikon-besar{width:40px;height:40px;color:var(--biru);stroke-width:2.1}
+.jadwal-judul h1{margin:0;font-size:24px;font-weight:800;color:var(--navy);letter-spacing:-.2px}
+.jadwal-judul .sub{margin:2px 0 0;font-size:13px;color:var(--abu)}
+.btn-besar{height:46px;padding:0 24px;font-size:15px;font-weight:700;border-radius:10px;box-shadow:0 6px 16px rgba(26,95,208,.3);
+  background:linear-gradient(180deg,#2a72e0,#1555bf);border-color:#1555bf}
+.btn-besar .i{width:20px;height:20px;stroke-width:2.4}
+
+/* ===== Tab status ===== */
+.tab-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+.tab-s{display:flex;align-items:center;justify-content:center;gap:8px;height:38px;border-radius:9px;background:#e3edfb;
+  color:var(--teks);font-size:13px;font-weight:600;text-decoration:none;transition:background .15s}
+.tab-s:hover{background:#d3e2f7}
+.tab-s .i{width:18px;height:18px}
+.tab-s.aktif{background:var(--biru);color:#fff;box-shadow:0 4px 12px rgba(26,95,208,.3)}
+
+/* ===== Filter ===== */
+.filter-bar{display:grid;grid-template-columns:1.7fr 1fr 1fr 1.25fr 42px;gap:10px;margin-bottom:12px}
+.f-ikon{position:relative;min-width:0}
+.f-ikon>.i{position:absolute;left:11px;top:9px;width:18px;height:18px;color:#3d4f6d;pointer-events:none;z-index:1}
+.f-ikon input[type=search],.f-ikon select{margin:0;padding-left:37px;height:36px;background-color:#fff}
+.f-ikon select{padding-right:32px;text-overflow:ellipsis}
+.f-ikon .teks{display:flex;align-items:center;height:36px;padding:0 10px 0 37px;border:1px solid #d3e0f1;border-radius:6px;background:#fff;
+  font-size:13px;white-space:nowrap;overflow:hidden}
+.f-ikon .teks.kosong{color:#7d8ca5}
+.f-ikon:focus-within .teks{outline:2px solid rgba(26,95,208,.3);border-color:var(--biru)}
+.tindih{position:absolute;top:0;bottom:0;width:50%;height:100%;margin:0;padding:0;opacity:0;cursor:pointer;border:0}
+.tindih-kiri{left:0}.tindih-kanan{left:50%}
+.tindih::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.btn-ikon-filter{display:grid;place-items:center;height:36px;border:1px solid #cfdcee;border-radius:8px;background:#fff;color:var(--teks);text-decoration:none}
+.btn-ikon-filter:hover{background:#f3f7fd}
+
+/* ===== Tabel ===== */
+.tabel-bungkus{border:1px solid #dbe6f5;border-radius:10px;overflow-x:auto;background:#fff}
+.tabel-jadwal{width:100%;min-width:900px;border-collapse:collapse}
+.tabel-jadwal th{background:#e3edfb;padding:11px 12px;font-size:12.5px;font-weight:700;text-align:left;color:var(--navy);white-space:nowrap}
+.tabel-jadwal td{padding:9px 12px;font-size:12.5px;border-bottom:1px solid #e6eef9;vertical-align:middle}
+.tabel-jadwal tbody tr:last-child td{border-bottom:0}
+.tabel-jadwal tbody tr:hover{background:#f7faff}
+.tabel-jadwal .c{text-align:center}
+.tabel-jadwal .kosong{text-align:center;color:var(--abu);padding:34px 12px}
+
+.nama-rapat{display:flex;align-items:center;gap:10px}
+.ikon-rapat{width:26px;height:26px;color:var(--biru);stroke-width:1.9}
+.nama-rapat b{display:block;font-size:13px;font-weight:700;color:var(--teks);line-height:1.25}
+.nama-rapat small{display:block;margin-top:1px;color:var(--abu);font-size:11.5px;line-height:1.3}
+
+.tgl-waktu{display:flex;flex-direction:column;gap:3px;white-space:nowrap}
+.tgl-waktu span,.tempat,.peserta{display:inline-flex;align-items:center;gap:7px}
+.tgl-waktu span{font-size:12px;font-weight:500}
+.tgl-waktu .i,.peserta .i{width:15px;height:15px;color:#2f4468}
+.tempat{align-items:flex-start;line-height:1.25;max-width:150px}
+.tempat .i{width:17px;height:17px;color:var(--biru);margin-top:1px}
+.peserta{font-weight:600}
+.peserta .i{color:var(--biru);width:17px;height:17px}
+
+/* ===== Lencana status ===== */
+.lencana{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;white-space:nowrap}
+.lencana .i{width:15px;height:15px}
+.lencana.biru{background:#d9e8fb;color:#1a5fd0}
+.lencana.hijau{background:#dff3e3;color:#1f8f3d;border:1px solid #c3e6cb}
+.lencana.abu{background:#e8edf4;color:#55657d}
+.lencana.kuning{background:#fdf0cf;color:#8a5a00}
+.lencana.oranye{background:#fde6cf;color:#a85a00}
+.lencana.merah{background:#fde0df;color:#c62828}
+
+/* ===== Tombol aksi ===== */
+.aksi-sel{width:1%;white-space:nowrap}
+.aksi-ikon{display:flex;gap:6px;justify-content:center;align-items:center}
+.satu{margin:0;display:inline-flex}
+.ikon-btn{display:inline-grid;place-items:center;width:32px;height:30px;padding:0;border:1px solid #cfdcee;border-radius:7px;
+  background:#fff;color:var(--teks);cursor:pointer;text-decoration:none}
+.ikon-btn:hover{background:#f0f5fc}
+.ikon-btn .i{width:16px;height:16px}
+.ikon-btn.biru{background:var(--biru);border-color:var(--biru);color:#fff}
+.ikon-btn.biru:hover{background:var(--biru-tua)}
+.ikon-btn.merah{background:#e5322d;border-color:#e5322d;color:#fff}
+.ikon-btn.merah:hover{background:#c92621}
+.ikon-btn.hijau{background:#1f9a42;border-color:#1f9a42;color:#fff}
+.ikon-btn.hijau:hover{background:#177d34}
+.ikon-btn.mati{opacity:.4;cursor:not-allowed;background:#f6f8fb}
+
+/* ===== Kaki tabel ===== */
+.tabel-kaki{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
+.info-jumlah{font-size:12.5px;color:var(--teks)}
+.info-jumlah a{color:var(--biru);font-weight:600;text-decoration:none}
+.paging{display:flex;gap:6px}
+.paging a,.paging span{display:grid;place-items:center;min-width:32px;height:32px;padding:0 8px;border:1px solid #cfdcee;border-radius:7px;
+  background:#fff;color:var(--teks);font-size:13px;font-weight:600;text-decoration:none}
+.paging a:hover{background:#f0f5fc}
+.paging .aktif{background:var(--biru);border-color:var(--biru);color:#fff}
+.paging .mati{color:#a8b4c6;background:#f6f8fb}
+
+/* ===== Dialog ===== */
+.dialog{border:0;border-radius:14px;padding:0;width:min(440px,92vw);box-shadow:0 20px 60px rgba(10,25,50,.3);color:var(--teks)}
+.dialog-lebar{width:min(620px,94vw)}
+.dialog::backdrop{background:rgba(10,25,50,.45)}
+.dialog-kepala{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;background:#e3edfb}
+.dialog-kepala b{font-size:15px;color:var(--navy);margin-right:8px}
+.dialog-tutup{border:0;background:none;cursor:pointer;color:var(--teks);display:grid;place-items:center;padding:4px}
+.dialog-isi{padding:16px 18px;max-height:68vh;overflow:auto}
+.dialog-kaki{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid #e6eef9}
+.agenda{margin:0 0 12px;color:var(--abu);font-size:13px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:0 0 14px}
+.info-grid dt{font-size:11.5px;font-weight:700;color:var(--abu);text-transform:uppercase;letter-spacing:.3px}
+.info-grid dd{margin:2px 0 0;font-size:13px;font-weight:500;word-break:break-word}
+.info-grid a{color:var(--biru)}
+.sub-judul{margin:0 0 6px;font-size:13px;color:var(--navy)}
+.daftar-anggota{margin:0;padding-left:22px;max-height:210px;overflow:auto;font-size:13px;border:1px solid #e6eef9;border-radius:8px;padding-top:8px;padding-bottom:8px}
+.daftar-anggota li{padding:2px 0}
+.daftar-anggota small{color:var(--abu)}
+.dua-kolom{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.wajib{color:#e5322d}
+.catatan-edit{margin:0;font-size:12px;color:var(--abu)}
+
+@media (max-width:1100px){ .filter-bar{grid-template-columns:1fr 1fr} .btn-ikon-filter{width:42px} }
+@media (max-width:600px){ .filter-bar{grid-template-columns:1fr} .info-grid,.dua-kolom{grid-template-columns:1fr} }
+
+/* ===== Halaman satu layar (tanpa scroll halaman) ===== */
+body.halaman-penuh{height:100vh;overflow:hidden}
+body.halaman-penuh .konten{height:100vh;display:flex;flex-direction:column;padding-bottom:14px}
+body.halaman-penuh .halaman-putih{flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 18px 12px}
+body.halaman-penuh .jadwal-head{margin-bottom:10px}
+body.halaman-penuh .btn-besar{height:42px}
+body.halaman-penuh .tab-status{margin-bottom:10px}
+body.halaman-penuh .filter-bar{margin-bottom:10px}
+body.halaman-penuh .tabel-bungkus{flex:1;min-height:0;overflow:auto}
+body.halaman-penuh .tabel-jadwal th{position:sticky;top:0;z-index:2}
+body.halaman-penuh .tabel-jadwal td{padding-top:7px;padding-bottom:7px}
+body.halaman-penuh .tabel-kaki{margin-top:10px}
+body.halaman-penuh .alert{margin-bottom:10px;padding:8px 14px}
+
+/* Layar kecil / HP: kembali boleh di-scroll */
+@media (max-width:900px){
+  body.halaman-penuh{height:auto;overflow:auto}
+  body.halaman-penuh .konten{height:auto;display:block}
+  body.halaman-penuh .halaman-putih{display:block}
+  body.halaman-penuh .tabel-bungkus{overflow-x:auto}
+}

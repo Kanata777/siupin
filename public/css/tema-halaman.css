@@ -1,0 +1,104 @@
+/* =====================================================================
+   Penyeragam gaya halaman lama (jadwal.css, kelompok.css, rapat.css).
+   Dimuat paling akhir. Menghapus gradasi, bayangan, dan warna pastel
+   supaya semua halaman senada dengan app.css dan dashboard.css.
+   Kalau nanti css halaman-halaman itu dirapikan langsung, file ini
+   bisa dihapus.
+   ===================================================================== */
+
+/* Pembungkus halaman tidak lagi kotak putih besar */
+body.halaman-penuh .halaman-putih{padding:0}
+body.halaman-penuh .konten{padding-bottom:16px}
+
+/* Judul halaman */
+.jadwal-judul h1,.kel-head h1,.rapat-head h1{font-size:21px;font-weight:600;letter-spacing:0}
+.jadwal-judul .sub,.kel-head .sub,.rapat-head .sub{font-size:13px}
+.ikon-besar{display:none}
+
+/* Kotak */
+.panel,.kartu,.tabel-bungkus,.kel-tabel,.dialog,.kotak-pilih,.hasil-cari,.peg-hasil,.baris-rekap{border-radius:4px;box-shadow:none}
+.panel{border-color:var(--garis)}
+.halaman-putih .panel,.halaman-putih .tabel-bungkus,.halaman-putih .kel-tabel{background:#fff}
+
+/* Judul panel (Buat Rapat) */
+.judul-panel{background:var(--tebal);background-image:none;border-radius:3px 3px 0 0;border-bottom:1px solid var(--garis);padding:9px 14px;font-size:14px;font-weight:600}
+.judul-panel .i,.kel-bar h3 .i,.kepala-plain h3 .i{color:var(--abu)}
+.kel-bar h3,.kepala-plain h3{font-size:15px;font-weight:600}
+
+/* Tombol */
+.btn,.ikon-btn,.btn-aksi,.btn-file,.btn-ikon-filter,.paging a,.paging span,.pagination .page-link{border-radius:3px}
+.btn-besar{height:38px;font-size:13.5px;font-weight:500;border-radius:3px;box-shadow:none;background:var(--biru);border-color:var(--biru)}
+.btn-besar:hover{background:var(--biru-tua)}
+.btn-garis-biru{background:#fff;border-color:#bfc6d0;color:var(--biru)}
+.btn-garis-biru:hover{background:var(--latar)}
+.btn-garis-merah{border-color:#d9a69d;color:var(--merah)}
+.btn-garis-merah:hover{background:#fbf1ef}
+.ikon-btn.muda{background:#fff;border-color:#bfc6d0;color:var(--biru)}
+.ikon-btn.muda:hover{background:var(--latar)}
+.ikon-btn.hijau{background:var(--hijau);border-color:var(--hijau)}
+.ikon-btn.merah,.btn-aksi.hapus{background:var(--merah);border-color:var(--merah)}
+.btn-aksi.edit{background:#fff;border-color:#bfc6d0}
+
+/* Tab status jadwal: jadi tab bergaris bawah */
+.tab-status{display:flex;flex-wrap:wrap;gap:0;margin-bottom:12px;border-bottom:1px solid var(--garis)}
+.tab-s{height:auto;padding:8px 14px;margin-bottom:-1px;border-radius:0;background:none;border-bottom:2px solid transparent;
+  color:var(--abu);font-weight:500;justify-content:flex-start}
+.tab-s:hover{background:none;color:var(--navy)}
+.tab-s .i{display:none}
+.tab-s.aktif{background:none;box-shadow:none;color:var(--navy);border-bottom-color:var(--biru);font-weight:600}
+
+/* Tab peserta (Buat Rapat) */
+.tab-peserta-bar{background:var(--tebal);border-radius:3px}
+.tab-peserta{border-radius:2px}
+.tab-peserta.aktif{box-shadow:none}
+
+/* Kepala tabel */
+.tabel-jadwal th,.tabel-kel th,.tabel-polos th,.tabel-unit th{background:var(--tebal);color:var(--navy);font-size:13px;font-weight:600;letter-spacing:0;border-bottom:1px solid var(--garis)}
+.tabel-jadwal tbody tr:hover,.tabel-ang tbody tr:hover,#tbKelompok tr[data-id]:hover{background:#f7f8fa}
+#tbKelompok tr.dipilih{background:#eef2f8;box-shadow:inset 3px 0 0 var(--biru)}
+
+/* Lencana dan chip: persegi, tanpa pil */
+.lencana,.chip,.chip-jml,.chip-orang,.status-wa,.badge-tempat{border-radius:3px}
+.lencana.biru{background:#e7edf6;color:var(--biru)}
+.lencana.hijau{background:#e6f1ea;color:#256a42;border-color:#cfe3d7}
+.lencana.abu{background:var(--tebal);color:#4d596b}
+.lencana.kuning{background:#f7ecd3;color:var(--kuning)}
+.lencana.oranye{background:#f6e4d0;color:#9a5410}
+.lencana.merah{background:#f6e0dc;color:#9a3626}
+.chip.hijau{background:#e6f1ea;color:#256a42}
+.chip.kuning{background:#f7ecd3;color:var(--kuning)}
+.chip.merah{background:#f6e0dc;color:#9a3626}
+.chip.biru{background:#e7edf6;color:var(--biru)}
+.chip-jml{background:var(--tebal);color:#334155}
+.status-wa.terkirim{background:#e6f1ea;color:#256a42}
+.status-wa.pending{background:#f7ecd3;color:var(--kuning)}
+.status-wa.gagal{background:#f6e0dc;color:#9a3626}
+.badge-tempat.ok{background:#e6f1ea;color:#256a42;border-color:#cfe3d7}
+.badge-tempat.bentrok{background:#f6e0dc;color:#9a3626;border-color:#e6bfb8}
+
+/* Avatar kelompok */
+.ava-kel,.avatar-kel{background:var(--tebal);background-image:none;border-radius:4px;color:var(--navy)}
+.avatar-ang{border-radius:3px}
+
+/* Dialog */
+.dialog{border-radius:4px;box-shadow:0 12px 40px rgba(20,30,50,.28)}
+.dialog::backdrop{backdrop-filter:none;background:rgba(20,30,50,.45)}
+.dialog-kepala{background:var(--tebal);background-image:none;border-bottom:1px solid var(--garis)}
+.dialog-kepala b{color:var(--navy)}
+.dialog-kaki{background:#fff}
+
+/* Toast */
+.toast{border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.2);background:var(--hijau)}
+.toast.galat{background:var(--merah)}
+
+/* Input dengan ikon: ikon lebih redup */
+.f-ikon>.i,.ikon-input>.i,.f-cari>.i,.kotak-cari>.i{color:#7a8496}
+.f-ikon .teks,.ikon-input .teks{border-radius:3px;border-color:#c6ccd5}
+.f-ikon .teks.kosong{color:#8b94a3}
+
+/* Checkbox/radio kustom: warna biru baru */
+.radio input:checked{border-color:var(--biru);background:radial-gradient(circle,var(--biru) 0 42%,#fff 48%)}
+.peserta-judul,.chip-orang.lebih{background:var(--tebal);color:var(--navy)}
+.chip-orang.lebih{border-color:var(--tebal)}
+.paging .aktif,.pagination .active .page-link{background:var(--biru);border-color:var(--biru)}
+.btn-file{background:#fff;border-color:#bfc6d0}

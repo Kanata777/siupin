@@ -1,0 +1,93 @@
+:root{
+  --biru:#1a5fd0; --biru-tua:#144aa6; --navy:#14305e;
+  --garis:#dce7f6; --teks:#1c2b44; --abu:#64738b;
+  --lebar-sidebar:208px; --tinggi-topbar:68px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:14px;color:var(--teks);
+  background:linear-gradient(180deg,#dfeafb 0,#ebf2fc 340px,#f1f6fd 100%) fixed;min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+
+/* Ikon (dari ikon-sprite) */
+.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ===== Topbar ===== */
+.topbar{position:fixed;inset:0 0 auto 0;height:var(--tinggi-topbar);display:flex;align-items:center;gap:18px;padding:0 26px;
+  background:rgba(223,234,251,.9);backdrop-filter:blur(8px);z-index:30}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand-logo{width:44px;height:44px}
+.brand-teks{display:flex;flex-direction:column;line-height:1}
+.brand-teks b{font-family:"Poppins","Inter",sans-serif;font-size:28px;font-weight:800;letter-spacing:.3px;color:var(--biru)}
+.brand-teks small{font-size:15px;font-weight:500;color:var(--navy);margin-top:3px}
+.tagline{border-left:1.5px solid #a9bbd4;padding-left:18px;font-size:13px;font-weight:500;line-height:1.35;color:#34445f}
+.topbar-kanan{margin-left:auto;display:flex;align-items:center;gap:22px}
+.bell{position:relative;background:none;border:0;color:var(--navy);cursor:pointer;padding:4px;display:grid;place-items:center}
+.bell .i{width:24px;height:24px}
+.bell-titik{position:absolute;top:2px;right:3px;width:10px;height:10px;border-radius:50%;background:#e5322d;border:2px solid #dfeafb}
+.user{display:flex;align-items:center;gap:10px;background:#d3e2f7;padding:5px 12px 5px 5px;border-radius:999px;font-weight:700;font-size:13px;color:var(--navy)}
+.user-ava{width:30px;height:30px;border-radius:50%;background:var(--biru);display:grid;place-items:center;color:#fff}
+.user-ava .i{width:17px;height:17px;fill:#fff;stroke:#fff}
+.user-panah{width:16px;height:16px;stroke-width:2.6}
+.burger{display:none;background:none;border:0;color:var(--navy);cursor:pointer}
+.burger .i{width:24px;height:24px}
+
+/* ===== Sidebar ===== */
+.sidebar{position:fixed;top:var(--tinggi-topbar);bottom:0;left:0;width:var(--lebar-sidebar);padding:12px 14px;overflow:hidden;z-index:20}
+.sidebar a{position:relative;z-index:1;display:flex;align-items:center;gap:14px;padding:11px 14px;margin-bottom:4px;
+  border-radius:8px;color:var(--teks);text-decoration:none;font-size:14px;font-weight:500;transition:background .15s}
+.sidebar a:hover{background:rgba(26,95,208,.09)}
+.sidebar a.aktif{background:var(--biru);color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(26,95,208,.28)}
+.sidebar a .i{width:20px;height:20px}
+.sidebar-deco{position:absolute;left:0;bottom:0;width:100%;fill:#c7dbf5;opacity:.8;pointer-events:none}
+
+/* ===== Konten ===== */
+.konten{margin-left:var(--lebar-sidebar);padding:calc(var(--tinggi-topbar) + 4px) 22px 28px 6px}
+.halaman-putih{background:rgba(255,255,255,.95);border:1px solid #dbe6f6;border-radius:16px;padding:18px 20px 22px;box-shadow:0 6px 28px rgba(30,70,140,.08)}
+.halaman-putih>h1{margin:0;font-size:24px;font-weight:800;color:var(--navy)}
+.halaman-putih>.sub{margin:2px 0 16px;color:var(--abu);font-size:13px}
+.kartu{background:#fff;border:1px solid var(--garis);border-radius:12px;padding:20px;margin-bottom:16px}
+
+/* ===== Form ===== */
+label{display:block;font-weight:700;margin-bottom:5px;font-size:13px;color:var(--teks)}
+input[type=text],input[type=search],input[type=url],input[type=email],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;height:36px;padding:0 11px;margin-bottom:12px;border:1px solid #d3e0f1;border-radius:6px;
+  font:inherit;font-size:13px;background:#fff;color:var(--teks)}
+textarea{height:auto;min-height:54px;padding:8px 11px;resize:vertical}
+input::placeholder,textarea::placeholder{color:#7d8ca5}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(26,95,208,.3);outline-offset:0;border-color:var(--biru)}
+input[type=checkbox],input[type=radio]{width:auto;height:auto;margin:0}
+select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2b44' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center/16px}
+
+/* ===== Tombol ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border:1px solid #cfdcee;border-radius:8px;
+  background:#fff;font:inherit;font-size:13px;font-weight:600;color:var(--teks);cursor:pointer;text-decoration:none}
+.btn:hover{background:#f3f7fd}
+.btn .i{width:17px;height:17px}
+.btn-biru{background:var(--biru);border-color:var(--biru);color:#fff}
+.btn-biru:hover{background:var(--biru-tua)}
+.btn-hijau{background:linear-gradient(180deg,#2aa54a,#1b8a3a);border-color:#1b8a3a;color:#fff}
+.btn-hijau:hover{background:linear-gradient(180deg,#259443,#177a33)}
+.btn-merah{background:#e5322d;border-color:#e5322d;color:#fff}
+
+/* ===== Tabel umum ===== */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:#eef4fc;text-align:left;padding:10px 12px}
+td{padding:10px 12px;border-bottom:1px solid var(--garis)}
+
+/* ===== Pesan ===== */
+.alert{padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:13px;font-weight:600}
+.alert.sukses{background:#e2f5e6;border:1px solid #bfe5c7;color:#1f6e33}
+.alert.gagal{background:#fde3e3;border:1px solid #f4bcbc;color:#a12222}
+.alert ul{margin:0;padding-left:18px}
+
+/* ===== Layar kecil ===== */
+@media (max-width:900px){
+  .burger{display:block}
+  .tagline,.user-nama{display:none}
+  .sidebar{transform:translateX(-100%);transition:transform .2s;background:#fff;border-right:1px solid var(--garis)}
+  body.buka .sidebar{transform:none;box-shadow:0 0 30px rgba(0,0,0,.2)}
+  .konten{margin-left:0;padding:calc(var(--tinggi-topbar) + 4px) 10px 20px}
+  .topbar{padding:0 14px;gap:12px}
+}
