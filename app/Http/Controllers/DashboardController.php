@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Rapat;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,12 +14,12 @@ class DashboardController extends Controller
         [$dari, $sampai] = $this->rentang($request);
 
         // Jika bulan ini belum ada rapat, tampilkan bulan terakhir yang punya data
-        $adaData         = DB::table('rapat')->exists();
+        $adaData         = $this->tabelRapat()->exists();
         $periodeOtomatis = false;
         if ($adaData && !$request->has('bulan') && !$request->has('dari') && !$request->has('sampai')) {
-            $adaDiPeriode = DB::table('rapat')
+            $adaDiPeriode = $this->tabelRapat()
                 ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])->exists();
-            if (!$adaDiPeriode && ($terakhir = DB::table('rapat')->max('tanggal'))) {
+            if (!$adaDiPeriode && ($terakhir = $this->tabelRapat()->max('tanggal'))) {
                 $t               = Carbon::parse($terakhir);
                 $dari            = $t->copy()->startOfMonth()->startOfDay();
                 $sampai          = $t->copy()->endOfMonth()->startOfDay();
@@ -31,7 +32,7 @@ class DashboardController extends Controller
         $bulanBerikut = $dari->copy()->startOfMonth()->addMonthNoOverflow()->format('Y-m');
 
         // Pintasan periode
-        $mm = DB::table('rapat')->selectRaw('MIN(tanggal) AS a, MAX(tanggal) AS b')->first();
+        $mm = $this->tabelRapat()->selectRaw('MIN(tanggal) AS a, MAX(tanggal) AS b')->first();
         $preset = [
             'Bulan ini'  => route('dashboard', ['bulan' => now()->format('Y-m')]),
             'Tahun ini'  => route('dashboard', ['dari' => now()->startOfYear()->toDateString(),  'sampai' => now()->endOfYear()->toDateString()]),
@@ -78,7 +79,7 @@ class DashboardController extends Controller
         $awal  = $dari->toDateString() . ' 00:00:00';
         $akhir = $sampai->toDateString() . ' 23:59:59';
 
-        $hadir = DB::table('tabel_absensi')->whereBetween('waktu_absensi', [$awal, $akhir])->count();
+        $hadir = $this->absensi()->whereBetween('waktu_absensi', [$awal, $akhir])->count();
         $persenHadir = $undangan > 0 ? min(100, (int) round($hadir / $undangan * 100)) : 0;
 
         // Daftar nama peserta yang hadir (digabung per orang)
@@ -103,6 +104,39 @@ class DashboardController extends Controller
             'undangan', 'hadir', 'persenHadir', 'daftarHadir', 'perUnit', 'notulensi', 'dokumentasi',
             'statusLain', 'adaData', 'periodeOtomatis', 'preset', 'bulanSebelum', 'bulanBerikut'
         ));
+    }
+
+    /** Tabel rapat untuk statistik: Super Admin = semua, User biasa = rapat miliknya saja */
+    private function tabelRapat()
+    {
+        $q = DB::table('rapat');
+
+        if (!Rapat::bolehSemua()) {
+            $q->where('user_id', (int) auth()->id());
+        }
+
+        return $q;
+    }
+
+    /**
+     * Data absensi untuk statistik. tabel_absensi tidak punya id_rapat, jadi untuk User biasa
+     * hanya absensi yang cocok (nama rapat + tanggal) dengan rapat miliknya yang dihitung.
+     */
+    private function absensi()
+    {
+        $q = DB::table('tabel_absensi');
+
+        if (!Rapat::bolehSemua()) {
+            $q->whereRaw(
+                'EXISTS (SELECT 1 FROM rapat r
+                          WHERE r.user_id = ?
+                            AND TRIM(r.nama_rapat) = TRIM(tabel_absensi.nama_rapat)
+                            AND r.tanggal = DATE(tabel_absensi.waktu_absensi))',
+                [(int) auth()->id()]
+            );
+        }
+
+        return $q;
     }
 
     /** Periode dari ?dari=&sampai= ; default: bulan berjalan. */
@@ -141,6 +175,22 @@ class DashboardController extends Controller
     {
         $d = $dari->toDateString();
         $s = $sampai->toDateString();
+
+        // User biasa: hanya rapat miliknya. Catatan di rapat_batal_tertunda tidak punya pemilik,
+        // jadi hanya dipakai untuk Super Admin.
+        if (!Rapat::bolehSemua()) {
+            $baris = DB::select(
+                'SELECT id_rapat, tanggal, id_kelompok, LOWER(TRIM(status)) AS status
+                   FROM rapat
+                  WHERE tanggal BETWEEN ? AND ? AND user_id = ?',
+                [$d, $s, (int) auth()->id()]
+            );
+
+            return collect($baris)->unique('id_rapat')->values()->map(function ($r) {
+                $r->kelompok = $this->klasifikasi((string) $r->status, (string) $r->tanggal);
+                return $r;
+            });
+        }
 
         $baris = DB::select("
             SELECT id_rapat, tanggal, id_kelompok, LOWER(TRIM(status)) AS status
@@ -221,7 +271,7 @@ class DashboardController extends Controller
      */
     private function daftarHadir(string $awal, string $akhir): array
     {
-        $rows = DB::table('tabel_absensi')
+        $rows = $this->absensi()
             ->selectRaw("TRIM(nama_lengkap) AS peserta,
                          COALESCE(NULLIF(TRIM(nama_unit), ''), 'Tanpa Unit') AS unit,
                          TRIM(nama_rapat) AS rapat,
@@ -291,7 +341,7 @@ class DashboardController extends Controller
             }
         }
 
-        $hadirUnit = DB::table('tabel_absensi')
+        $hadirUnit = $this->absensi()
             ->selectRaw("COALESCE(NULLIF(TRIM(nama_unit), ''), 'Tanpa Unit') AS unit, COUNT(*) AS n")
             ->whereBetween('waktu_absensi', [$awal, $akhir])
             ->groupBy('unit')->pluck('n', 'unit')->all();

@@ -25,17 +25,79 @@ class Rapat extends Model
     public const NILAI_SELESAI    = 'Sudah Terlaksana';
     public const NILAI_BATAL      = 'Batal';
 
+    /** Jeda minimal (menit) antar rapat di tempat yang sama */
+    public const JEDA_MENIT = 30;
+
     /** Status yang dianggap batal (huruf kecil). */
     public const STATUS_BATAL = ['batal', 'dibatalkan'];
+
+    /** Pemilik rapat = user yang membuatnya. NULL pada data lama (hanya terlihat Super Admin). */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** Apakah user yang sedang login adalah Super Admin (tidak terkena pembatasan kepemilikan) */
+    public static function bolehSemua(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin();
+    }
+
+    /**
+     * Rapat yang boleh dilihat user login: Super Admin = semua, User biasa = hanya miliknya.
+     * Tanpa login = tidak ada. Sengaja BUKAN global scope, karena pengecekan bentrok tempat
+     * (bentrok / queryBentrok) harus tetap melihat rapat milik semua user.
+     */
+    public function scopeTerlihat($query)
+    {
+        if (static::bolehSemua()) {
+            return $query;
+        }
+
+        $id = auth()->id();
+
+        return $id === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where($this->qualifyColumn('user_id'), $id);
+    }
+
+    /** Hanya rapat yang dibuat user login (halaman Rapat Saya, termasuk untuk Super Admin) */
+    public function scopeMilikSaya($query)
+    {
+        $id = auth()->id();
+
+        return $id === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where($this->qualifyColumn('user_id'), $id);
+    }
 
     public function kelompok()
     {
         return $this->belongsTo(KelompokRapat::class, 'id_kelompok', 'id_kelompok');
     }
 
+    /**
+     * Tempat dari daftar Tempat Rapat. Rapat di luar kantor punya id_tempat = NULL,
+     * jadi pakai withDefault() agar `$rapat->tempat->nama_tempat` tidak error (hasilnya null).
+     * Bila perlu mengecek "apakah rapat ini di tempat terdaftar", gunakan `$rapat->id_tempat !== null`.
+     */
     public function tempat()
     {
-        return $this->belongsTo(TempatRapat::class, 'id_tempat', 'id_tempat');
+        return $this->belongsTo(TempatRapat::class, 'id_tempat', 'id_tempat')->withDefault();
+    }
+
+    /** Nama tempat untuk ditampilkan: selalu memakai kolom tempat_rapat (terisi untuk dalam & luar kantor) */
+    public function getNamaTempatTampilAttribute(): string
+    {
+        return (string) ($this->tempat_rapat ?: optional($this->tempat)->nama_tempat);
+    }
+
+    /** Apakah rapat ini di luar kantor (tidak terhubung ke daftar tempat) */
+    public function getDiLuarKantorAttribute(): bool
+    {
+        return $this->id_tempat === null;
     }
 
     /** Apakah tabel rapat punya kolom opsional (waktu_selesai, metode, lampiran_path) */
@@ -47,7 +109,8 @@ class Rapat extends Model
 
     /**
      * Apakah tempat sudah dipakai rapat lain (yang belum batal/tertunda)
-     * pada tanggal dan jam yang bertabrakan.
+     * pada tanggal dan jam yang bertabrakan, termasuk jeda JEDA_MENIT menit
+     * sebelum dan sesudah rapat lain.
      */
     public static function bentrok(int $idTempat, string $tanggal, string $waktu, ?string $selesai = null, ?int $kecuali = null): bool
     {
@@ -60,19 +123,16 @@ class Rapat extends Model
             $q->where('id_rapat', '!=', $kecuali);
         }
 
+        $punyaSelesai = static::punyaKolom('waktu_selesai');
         $mulai = $waktu . ':00';
+        $akhir = ($selesai && $punyaSelesai) ? $selesai . ':00' : $mulai;
 
-        if ($selesai && static::punyaKolom('waktu_selesai')) {
-            $akhir = $selesai . ':00';
-            $q->where(function ($w) use ($mulai, $akhir) {
-                $w->where(fn ($x) => $x->whereNotNull('waktu_selesai')
-                        ->where('waktu', '<', $akhir)->where('waktu_selesai', '>', $mulai))
-                  ->orWhere(fn ($x) => $x->whereNull('waktu_selesai')
-                        ->where('waktu', '>=', $mulai)->where('waktu', '<', $akhir));
-            });
-        } else {
-            $q->where('waktu', $mulai);
-        }
+        $selesaiLama = $punyaSelesai ? 'COALESCE(waktu_selesai, waktu)' : 'waktu';
+        $jeda = sprintf('%02d:%02d:00', intdiv(static::JEDA_MENIT, 60), static::JEDA_MENIT % 60);
+
+        // bentrok bila: mulai_baru <= selesai_lama + jeda  DAN  selesai_baru + jeda >= mulai_lama
+        $q->whereRaw("TIME(?) < ADDTIME($selesaiLama, '$jeda')", [$mulai])
+          ->whereRaw("ADDTIME(TIME(?), '$jeda') > waktu", [$akhir]);
 
         return $q->exists();
     }

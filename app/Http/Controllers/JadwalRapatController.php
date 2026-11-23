@@ -1,9 +1,15 @@
 <?php
 
+// Simpan sebagai: app/Http/Controllers/JadwalRapatController.php (ganti SELURUH isi file lama)
+
 namespace App\Http\Controllers;
 
+use App\Jobs\KirimPembaruanRapatWa;
+use App\Jobs\KirimUndanganWa;
+use App\Models\KelompokRapat;
 use App\Models\KelompokRapatDetail;
 use App\Models\Rapat;
+use App\Models\RapatUndangan;
 use App\Models\TempatRapat;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -39,7 +45,32 @@ class JadwalRapatController extends Controller
     // ======================================================================
     public function index(Request $request)
     {
+        // Jadwal Rapat global hanya untuk Super Admin; User biasa dialihkan ke Rapat Saya
+        if (!Rapat::bolehSemua()) {
+            return redirect()->route('rapat.saya');
+        }
+
+        return $this->tampilkanDaftar($request, false);
+    }
+
+    // ======================================================================
+    //  RAPAT SAYA: hanya rapat yang dibuat user yang sedang login
+    // ======================================================================
+    public function saya(Request $request)
+    {
+        return $this->tampilkanDaftar($request, true);
+    }
+
+    /** Daftar rapat (dipakai bersama oleh Jadwal Rapat dan Rapat Saya; tampilan sama) */
+    private function tampilkanDaftar(Request $request, bool $saya)
+    {
         Carbon::setLocale('id');
+
+        $rute     = $saya ? 'rapat.saya' : 'rapat.jadwal';
+        $judul    = $saya ? 'Rapat Saya' : 'Jadwal Rapat';
+        $subjudul = $saya
+            ? 'Daftar rapat/undangan yang Anda buat, beserta status pelaksanaannya.'
+            : 'Daftar rencana, pelaksanaan, dan status seluruh rapat/undangan.';
 
         $punyaSelesai = Rapat::punyaKolom('waktu_selesai');
         $caseSql      = $this->ekspresiStatus($punyaSelesai);
@@ -55,7 +86,10 @@ class JadwalRapatController extends Controller
         }
         $terbatas = (bool) ($dari || $sampai);
 
-        $dasar = $this->dasar($request, $dari, $sampai);
+        $dasar = $this->dasar($request, $dari, $sampai, $saya);
+
+        // Untuk pesan kosong "Belum ada rapat yang Anda buat" (tanpa melihat filter/periode)
+        $punyaRapat = $saya ? Rapat::milikSaya()->exists() : Rapat::terlihat()->exists();
 
         // ----- jumlah per status (untuk tab) -----
         $hitung = (clone $dasar)
@@ -112,7 +146,7 @@ class JadwalRapatController extends Controller
             }
             $tab[] = [
                 'kunci' => $kunci, 'label' => $d[0], 'ikon' => $d[1],
-                'n' => $n, 'url' => route('rapat.jadwal', $param),
+                'n' => $n, 'url' => route($rute, $param),
             ];
         }
 
@@ -126,12 +160,14 @@ class JadwalRapatController extends Controller
 
         $konfig = [
             'urlShow'      => route('rapat.show', '__ID__'),
+            'urlPegawai'   => route('rapat.pegawai'),
             'punyaSelesai' => $punyaSelesai,
         ];
 
         return view('rapat.jadwal', compact(
             'rapat', 'tab', 'status', 'units', 'tempatList',
-            'dari', 'sampai', 'semua', 'terbatas', 'teksRentang', 'konfig', 'punyaSelesai'
+            'dari', 'sampai', 'semua', 'terbatas', 'teksRentang', 'konfig', 'punyaSelesai',
+            'saya', 'rute', 'judul', 'subjudul', 'punyaRapat'
         ));
     }
 
@@ -179,7 +215,7 @@ class JadwalRapatController extends Controller
     }
 
     // ======================================================================
-    //  UBAH rapat (JSON)
+    //  UBAH rapat (JSON): data rapat + peserta + kirim WA
     // ======================================================================
     public function update(Request $request, int $id)
     {
@@ -190,58 +226,161 @@ class JadwalRapatController extends Controller
         }
 
         $data = $request->validate([
-            'nama_rapat'    => 'required|string|max:100',
-            'catatan_rapat' => 'nullable|string|max:255',
-            'tanggal'       => 'required|date',
-            'waktu'         => 'required|date_format:H:i',
-            'waktu_selesai' => 'nullable|date_format:H:i|after:waktu',
-            'id_tempat'     => 'required|exists:tempat_rapat,id_tempat',
+            'nama_rapat'         => 'required|string|max:100',
+            'catatan_rapat'      => 'nullable|string|max:255',
+            'tanggal'            => 'required|date',
+            'waktu'              => 'required|date_format:H:i',
+            'waktu_selesai'      => 'nullable|date_format:H:i|after:waktu',
+            'id_tempat'          => 'required|exists:tempat_rapat,id_tempat',
+            'peserta'            => 'required|array|min:1|max:3000',
+            'peserta.*.nomor_wa' => 'required|string|max:20',
+            'peserta.*.nama'     => 'required|string|max:100',
+            'kirim_pembaruan'    => 'nullable|boolean',
         ], [
-            'required'    => ':attribute wajib diisi.',
-            'exists'      => ':attribute tidak ditemukan.',
-            'date'        => ':attribute tidak valid.',
-            'date_format' => ':attribute tidak valid.',
-            'after'       => 'Jam selesai harus setelah jam mulai.',
-            'max'         => ':attribute terlalu panjang.',
+            'required'         => ':attribute wajib diisi.',
+            'exists'           => ':attribute tidak ditemukan.',
+            'date'             => ':attribute tidak valid.',
+            'date_format'      => ':attribute tidak valid.',
+            'after'            => 'Jam selesai harus setelah jam mulai.',
+            'max'              => ':attribute terlalu panjang.',
+            'peserta.required' => 'Pilih minimal satu peserta.',
+            'peserta.min'      => 'Pilih minimal satu peserta.',
         ], [
             'nama_rapat'    => 'Nama rapat',
             'catatan_rapat' => 'Agenda / topik',
             'tanggal'       => 'Tanggal',
             'waktu'         => 'Waktu mulai',
             'id_tempat'     => 'Tempat rapat',
+            'peserta'       => 'Peserta',
         ]);
 
+        $punyaSelesai = Rapat::punyaKolom('waktu_selesai');
         $tempat  = TempatRapat::findOrFail($data['id_tempat']);
-        $selesai = Rapat::punyaKolom('waktu_selesai') ? ($data['waktu_selesai'] ?? null) : null;
+        $selesai = $punyaSelesai ? ($data['waktu_selesai'] ?? null) : null;
 
         if (Rapat::bentrok($tempat->id_tempat, $data['tanggal'], $data['waktu'], $selesai, $id)) {
             return response()->json(['message' => 'Tempat sudah dipakai rapat lain pada tanggal dan jam tersebut.'], 422);
         }
 
-        $jadwalBerubah = $r->tanggal->toDateString() !== $data['tanggal']
-            || substr($r->waktu, 0, 5) !== $data['waktu'];
+        // ----- apa saja yang berubah? -----
+        $waktuLama   = substr((string) $r->waktu, 0, 5);
+        $selesaiLama = ($punyaSelesai && $r->waktu_selesai) ? substr((string) $r->waktu_selesai, 0, 5) : null;
 
-        $baru = [
-            'nama_rapat'    => $data['nama_rapat'],
-            'catatan_rapat' => $data['catatan_rapat'] ?? '',
-            'tanggal'       => $data['tanggal'],
-            'waktu'         => $data['waktu'] . ':00',
-            'tempat_rapat'  => $tempat->nama_tempat,
-            'id_tempat'     => $tempat->id_tempat,
+        $waktuBerubah = $r->tanggal->toDateString() !== $data['tanggal']
+            || $waktuLama !== $data['waktu']
+            || ($punyaSelesai && $selesaiLama !== $selesai);
+        $tempatBerubah = (int) $r->id_tempat !== (int) $tempat->id_tempat;
+        $jadwalBerubah = $waktuBerubah || $tempatBerubah;
+
+        // data sebelum diubah (untuk teks "sebelumnya" di pesan WA)
+        $lama = [
+            'tanggal' => $r->tanggal->toDateString(),
+            'waktu'   => $waktuLama,
+            'selesai' => $selesaiLama,
+            'tempat'  => $r->tempat_rapat,
         ];
-        if (Rapat::punyaKolom('waktu_selesai')) {
-            $baru['waktu_selesai'] = $selesai ? $selesai . ':00' : null;
+
+        // ----- peserta -----
+        $peserta = collect($data['peserta'])
+            ->map(fn ($p) => ['nomor_wa' => trim($p['nomor_wa']), 'nama' => trim($p['nama'])])
+            ->unique('nomor_wa')->values();
+        $nomorBaru = $peserta->pluck('nomor_wa');
+
+        $lamaNomor = KelompokRapatDetail::where('id_kelompok', $r->id_kelompok)
+            ->pluck('nomor_wa')->map(fn ($n) => trim($n))->values();
+
+        $ditambah = $peserta->reject(fn ($p) => $lamaNomor->contains($p['nomor_wa']))->values();
+        $tetap    = $peserta->filter(fn ($p) => $lamaNomor->contains($p['nomor_wa']))->values();
+        $dihapus  = $lamaNomor->diff($nomorBaru)->values();
+        $pesertaBerubah = $ditambah->isNotEmpty() || $dihapus->isNotEmpty();
+
+        // Draft tidak pernah mengirim WA
+        $kirimBoleh     = $r->status_tampil !== 'draft';
+        $kirimPembaruan = $request->boolean('kirim_pembaruan', true);
+
+        $idBaru      = [];   // id rapat_undangan yang dapat undangan penuh (anggota baru)
+        $idPembaruan = [];   // id rapat_undangan yang dapat pemberitahuan perubahan (peserta lama)
+
+        DB::transaction(function () use (
+            $id, $data, $tempat, $selesai, $punyaSelesai, $waktuBerubah, $pesertaBerubah,
+            $peserta, $nomorBaru, $ditambah, $tetap, $dihapus, $kirimBoleh, $kirimPembaruan, $jadwalBerubah,
+            &$idBaru, &$idPembaruan
+        ) {
+            $baru = [
+                'nama_rapat'    => $data['nama_rapat'],
+                'catatan_rapat' => $data['catatan_rapat'] ?? '',
+                'tanggal'       => $data['tanggal'],
+                'waktu'         => $data['waktu'] . ':00',
+                'tempat_rapat'  => $tempat->nama_tempat,
+                'id_tempat'     => $tempat->id_tempat,
+            ];
+            if ($punyaSelesai) {
+                $baru['waktu_selesai'] = $selesai ? $selesai . ':00' : null;
+            }
+            if ($waktuBerubah) {
+                // jadwal diubah -> pengingat WhatsApp otomatis perlu dikirim ulang
+                $baru['ingat_rapat']   = 0;
+                $baru['ingat_rapat_2'] = 0;
+            }
+
+            // Anggota berubah -> pakai/buat kelompok lain. Kelompok lama TIDAK diubah
+            // karena bisa dipakai bersama rapat lain.
+            if ($pesertaBerubah) {
+                $kelompok = $this->cariKelompokSama($nomorBaru->all())
+                    ?? $this->buatKelompokOtomatis($data['nama_rapat'], $data['tanggal'], $peserta);
+
+                $baru['id_kelompok']    = $kelompok->id_kelompok;
+                $baru['nama_kelompok']  = $kelompok->nama_kelompok;
+                $baru['jumlah_peserta'] = $peserta->count();
+            }
+
+            Rapat::where('id_rapat', $id)->update($baru);
+
+            if (!$kirimBoleh) {
+                return;
+            }
+
+            // Anggota yang dikeluarkan: hapus dari tabel status WA
+            if ($dihapus->isNotEmpty()) {
+                RapatUndangan::where('id_rapat', $id)
+                    ->whereIn('nomor_wa', $dihapus->all())->delete();
+            }
+
+            // Anggota baru -> undangan penuh (job membaca data rapat terbaru)
+            if ($ditambah->isNotEmpty()) {
+                $idBaru = $this->siapkanUndangan($id, $ditambah)->all();
+            }
+
+            // Peserta lama -> pemberitahuan perubahan, hanya bila jadwal/tempat berubah
+            if ($jadwalBerubah && $kirimPembaruan && $tetap->isNotEmpty()) {
+                $idPembaruan = $this->siapkanUndangan($id, $tetap)->all();
+            }
+        });
+
+        // Dispatch SETELAH transaksi commit
+        $jeda = max(0, (int) config('wa.jeda', 3));
+        $urut = 0;
+        foreach ($idBaru as $idU) {
+            KirimUndanganWa::dispatch((int) $idU)->delay(now()->addSeconds($urut++ * $jeda));
         }
-        if ($jadwalBerubah) {
-            // jadwal diubah -> pengingat WhatsApp perlu dikirim ulang
-            $baru['ingat_rapat']   = 0;
-            $baru['ingat_rapat_2'] = 0;
+        foreach ($idPembaruan as $idU) {
+            KirimPembaruanRapatWa::dispatch((int) $idU, $lama)->delay(now()->addSeconds($urut++ * $jeda));
         }
 
-        Rapat::where('id_rapat', $id)->update($baru);
-        session()->flash('sukses', 'Rapat berhasil diperbarui.');
+        $pesan = 'Rapat berhasil diperbarui.';
+        if ($ditambah->isNotEmpty() && $kirimBoleh) {
+            $pesan .= ' Undangan WA dikirim ke ' . count($idBaru) . ' anggota baru.';
+        }
+        if ($idPembaruan) {
+            $pesan .= ' Pemberitahuan perubahan dikirim ke ' . count($idPembaruan) . ' peserta.';
+        }
+        if ($dihapus->isNotEmpty()) {
+            $pesan .= ' ' . $dihapus->count() . ' peserta dihapus.';
+        }
 
-        return response()->json(['pesan' => 'Rapat berhasil diperbarui.']);
+        session()->flash('sukses', $pesan);
+
+        return response()->json(['pesan' => $pesan]);
     }
 
     // ======================================================================
@@ -332,7 +471,7 @@ class JadwalRapatController extends Controller
     /** Salin rapat: buka halaman Buat Rapat dengan isian terisi */
     public function salin(int $id)
     {
-        $r = Rapat::findOrFail($id);
+        $r = Rapat::terlihat()->where('rapat.id_rapat', $id)->firstOrFail();
 
         $anggota = KelompokRapatDetail::where('id_kelompok', $r->id_kelompok)
             ->get(['nomor_wa', 'nama_lengkap'])
@@ -361,10 +500,79 @@ class JadwalRapatController extends Controller
     //  BANTUAN
     // ======================================================================
 
-    /** Query dasar dengan semua filter, kecuali status */
-    private function dasar(Request $request, ?string $dari, ?string $sampai)
+    /**
+     * Pastikan tiap peserta punya baris di rapat_undangan, set ke PENDING,
+     * lalu kembalikan id-id barisnya.
+     */
+    private function siapkanUndangan(int $idRapat, $peserta)
     {
-        $q = Rapat::query();
+        $nomor = $peserta->pluck('nomor_wa')->all();
+        $now   = now();
+
+        $ada = RapatUndangan::where('id_rapat', $idRapat)
+            ->whereIn('nomor_wa', $nomor)->pluck('nomor_wa')->all();
+
+        $baris = $peserta
+            ->reject(fn ($p) => in_array($p['nomor_wa'], $ada, true))
+            ->map(fn ($p) => [
+                'id_rapat'   => $idRapat,
+                'nomor_wa'   => $p['nomor_wa'],
+                'nama'       => $p['nama'],
+                'status'     => RapatUndangan::PENDING,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->values();
+
+        foreach ($baris->chunk(500) as $c) {
+            RapatUndangan::insert($c->all());
+        }
+
+        // PENDING lagi agar job tidak melewatinya (job undangan berhenti bila status sudah TERKIRIM)
+        RapatUndangan::where('id_rapat', $idRapat)->whereIn('nomor_wa', $nomor)
+            ->update(['status' => RapatUndangan::PENDING, 'error' => null, 'updated_at' => $now]);
+
+        return RapatUndangan::where('id_rapat', $idRapat)->whereIn('nomor_wa', $nomor)
+            ->orderBy('id')->pluck('id');
+    }
+
+    /** Cari kelompok tersimpan yang anggotanya persis sama (disalin dari RapatController) */
+    private function cariKelompokSama(array $nomor): ?KelompokRapat
+    {
+        sort($nomor, SORT_STRING);
+
+        $kandidat = KelompokRapat::withCount('anggota')->get()->where('anggota_count', count($nomor));
+        foreach ($kandidat as $k) {
+            $isi = $k->anggota()->pluck('nomor_wa')->map(fn ($n) => trim($n))->all();
+            sort($isi, SORT_STRING);
+            if ($isi === $nomor) {
+                return $k;
+            }
+        }
+        return null;
+    }
+
+    /** Buat kelompok otomatis untuk rapat yang anggotanya diubah */
+    private function buatKelompokOtomatis(string $namaRapat, string $tanggal, $peserta): KelompokRapat
+    {
+        // akhiran "rev" agar nama tidak bentrok dengan kelompok otomatis saat rapat dibuat
+        $nama = mb_substr(
+            KelompokRapat::PREFIX_OTOMATIS . $namaRapat . ' (' . date('d-m-Y', strtotime($tanggal)) . ') rev '
+                . now()->format('dHis'),
+            0,
+            100
+        );
+
+        $kelompok = KelompokRapat::buat($nama);
+        KelompokRapat::isiAnggota($kelompok->id_kelompok, $nama, $peserta);
+
+        return $kelompok;
+    }
+
+    /** Query dasar dengan semua filter, kecuali status */
+    private function dasar(Request $request, ?string $dari, ?string $sampai, bool $saya = false)
+    {
+        // Rapat Saya: hanya milik user login. Jadwal global (Super Admin): semua.
+        $q = $saya ? Rapat::milikSaya() : Rapat::terlihat();
 
         if ($dari)   { $q->where('rapat.tanggal', '>=', $dari); }
         if ($sampai) { $q->where('rapat.tanggal', '<=', $sampai); }
@@ -397,7 +605,9 @@ class JadwalRapatController extends Controller
     {
         $caseSql = $this->ekspresiStatus(Rapat::punyaKolom('waktu_selesai'));
 
+        // terlihat(): rapat milik user lain = 404 (berlaku untuk detail, ubah, batal, selesai, aktifkan)
         return Rapat::query()
+            ->terlihat()
             ->selectRaw("rapat.*, ($caseSql) AS status_tampil")
             ->where('rapat.id_rapat', $id)
             ->firstOrFail();

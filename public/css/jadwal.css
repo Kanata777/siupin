@@ -34,7 +34,7 @@
 
 /* ===== Tabel ===== */
 .tabel-bungkus{border:1px solid #dbe6f5;border-radius:10px;overflow-x:auto;background:#fff}
-.tabel-jadwal{width:100%;min-width:900px;border-collapse:collapse}
+.tabel-jadwal{width:100%;min-width:960px;border-collapse:collapse}
 .tabel-jadwal th{background:#e3edfb;padding:11px 12px;font-size:12.5px;font-weight:700;text-align:left;color:var(--navy);white-space:nowrap}
 .tabel-jadwal td{padding:9px 12px;font-size:12.5px;border-bottom:1px solid #e6eef9;vertical-align:middle}
 .tabel-jadwal tbody tr:last-child td{border-bottom:0}
@@ -43,8 +43,11 @@
 .tabel-jadwal .kosong{text-align:center;color:var(--abu);padding:34px 12px}
 
 .nama-rapat{display:flex;align-items:center;gap:10px}
-.ikon-rapat{width:26px;height:26px;color:var(--biru);stroke-width:1.9}
-.nama-rapat b{display:block;font-size:13px;font-weight:700;color:var(--teks);line-height:1.25}
+.ikon-rapat{width:26px;height:26px;color:var(--biru);stroke-width:1.9;flex:none}
+.nama-link{display:block;margin:0;padding:0;border:0;background:none;font:inherit;font-size:13px;font-weight:700;
+  color:var(--teks);line-height:1.25;text-align:left;cursor:pointer}
+.nama-link:hover{color:var(--biru);text-decoration:underline}
+.nama-link:focus-visible{outline:2px solid var(--biru);outline-offset:2px;border-radius:3px}
 .nama-rapat small{display:block;margin-top:1px;color:var(--abu);font-size:11.5px;line-height:1.3}
 
 .tgl-waktu{display:flex;flex-direction:column;gap:3px;white-space:nowrap}
@@ -66,21 +69,25 @@
 .lencana.oranye{background:#fde6cf;color:#a85a00}
 .lencana.merah{background:#fde0df;color:#c62828}
 
-/* ===== Tombol aksi ===== */
+/* ===== Tombol aksi (ringkas: Edit, Batalkan, Selesaikan) ===== */
 .aksi-sel{width:1%;white-space:nowrap}
-.aksi-ikon{display:flex;gap:6px;justify-content:center;align-items:center}
+.aksi-ikon{display:flex;gap:4px;justify-content:center;align-items:center}
 .satu{margin:0;display:inline-flex}
-.ikon-btn{display:inline-grid;place-items:center;width:32px;height:30px;padding:0;border:1px solid #cfdcee;border-radius:7px;
-  background:#fff;color:var(--teks);cursor:pointer;text-decoration:none}
-.ikon-btn:hover{background:#f0f5fc}
-.ikon-btn .i{width:16px;height:16px}
-.ikon-btn.biru{background:var(--biru);border-color:var(--biru);color:#fff}
-.ikon-btn.biru:hover{background:var(--biru-tua)}
-.ikon-btn.merah{background:#e5322d;border-color:#e5322d;color:#fff}
-.ikon-btn.merah:hover{background:#c92621}
-.ikon-btn.hijau{background:#1f9a42;border-color:#1f9a42;color:#fff}
-.ikon-btn.hijau:hover{background:#177d34}
-.ikon-btn.mati{opacity:.4;cursor:not-allowed;background:#f6f8fb}
+.ikon-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:26px;padding:0 9px;border:1px solid #cfdcee;border-radius:6px;font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;
+  background:#fff;color:var(--teks);cursor:pointer;text-decoration:none;transition:background .12s,color .12s,border-color .12s}
+.ikon-btn .i{width:14px;height:14px}
+.ikon-btn:focus-visible{outline:2px solid var(--biru);outline-offset:1px}
+
+/* Tombol solid + teks putih tebal agar jelas terbaca */
+.aksi-ikon .ikon-btn span{color:inherit;font:inherit;font-weight:700;letter-spacing:.1px}
+.aksi-ikon .ikon-btn svg{color:inherit;stroke:currentColor}
+.aksi-ikon .ikon-btn.biru{background:#1a5fd0;border-color:#1a5fd0;color:#fff}
+.aksi-ikon .ikon-btn.biru:hover{background:#144bab;border-color:#144bab}
+.aksi-ikon .ikon-btn.merah{background:#d32b26;border-color:#d32b26;color:#fff}
+.aksi-ikon .ikon-btn.merah:hover{background:#b3201c;border-color:#b3201c}
+.aksi-ikon .ikon-btn.hijau{background:#1a8a3a;border-color:#1a8a3a;color:#fff}
+.aksi-ikon .ikon-btn.hijau:hover{background:#13702e;border-color:#13702e}
+.aksi-ikon .ikon-btn.mati{opacity:1;cursor:not-allowed;background:#e8edf4;border-color:#d3dcea;color:#7d8ca5}
 
 /* ===== Kaki tabel ===== */
 .tabel-kaki{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
@@ -114,6 +121,38 @@
 .dua-kolom{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .wajib{color:#e5322d}
 .catatan-edit{margin:0;font-size:12px;color:var(--abu)}
+
+/* ===== Dialog edit: peserta ===== */
+.edit-peserta{margin-top:16px;padding-top:12px;border-top:1px solid #e6eef9}
+.edit-peserta-kepala{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.edit-peserta-kepala b{font-size:13px;color:var(--navy)}
+.kotak-cari-e{margin-bottom:8px}
+.kotak-cari-e input{margin:0}
+.hasil-cari-e{margin-top:4px;max-height:170px;overflow:auto;border:1px solid #d3e0f1;border-radius:8px;background:#fff}
+.hasil-item{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;width:100%;padding:7px 10px;border:0;border-bottom:1px solid #eef3fa;
+  background:#fff;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.hasil-item:last-child{border-bottom:0}
+.hasil-item:hover{background:#f3f7fd}
+.hasil-item small{color:var(--abu);font-size:11.5px}
+.hasil-item em{margin-left:auto;font-style:normal;color:#1f8f3d;font-weight:700}
+.hasil-item.sudah{background:#f6faf7}
+.hasil-cari-e .kosong-kecil,.daftar-edit-peserta .kosong-kecil{padding:8px 10px;color:var(--abu);font-size:12.5px;list-style:none}
+#eUnit{margin:0 0 8px}
+
+.daftar-edit-peserta{margin:0;padding:0;list-style:none;max-height:200px;overflow:auto;border:1px solid #e6eef9;border-radius:8px}
+.daftar-edit-peserta li{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #eef3fa;font-size:12.5px}
+.daftar-edit-peserta li:last-child{border-bottom:0}
+.daftar-edit-peserta .nama-peserta{flex:1;min-width:0;word-break:break-word}
+.daftar-edit-peserta small{color:var(--abu)}
+.lencana-baru{padding:1px 8px;border-radius:5px;background:#dff3e3;color:#1f8f3d;font-size:11px;font-weight:700}
+.hapus-peserta{display:grid;place-items:center;width:24px;height:24px;border:1px solid #f0c5c3;border-radius:6px;background:#fff;
+  color:#c62828;font-size:12px;line-height:1;cursor:pointer}
+.hapus-peserta:hover{background:#fde0df}
+
+.kirim-baris{margin-top:12px;padding:9px 12px;border:1px solid #d3e0f1;border-radius:8px;background:#f3f7fd}
+.cek-baris{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:12.5px;font-weight:600;cursor:pointer}
+.cek-baris input{width:auto;margin:2px 0 0;flex:none}
+#eInfoKirim{margin-top:10px;min-height:16px}
 
 @media (max-width:1100px){ .filter-bar{grid-template-columns:1fr 1fr} .btn-ikon-filter{width:42px} }
 @media (max-width:600px){ .filter-bar{grid-template-columns:1fr} .info-grid,.dua-kolom{grid-template-columns:1fr} }

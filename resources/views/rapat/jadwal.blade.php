@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Jadwal Rapat')
+@section('title', $judul)
 @section('body_class', 'halaman-penuh')
 
 @push('styles')
@@ -12,8 +12,8 @@
         <div class="jadwal-judul">
             <svg class="i ikon-besar"><use href="#i-kalender"/></svg>
             <div>
-                <h1>Jadwal Rapat</h1>
-                <p class="sub">Daftar rencana, pelaksanaan, dan status seluruh rapat/undangan.</p>
+                <h1>{{ $judul }}</h1>
+                <p class="sub">{{ $subjudul }}</p>
             </div>
         </div>
         <a href="{{ route('rapat.create') }}" class="btn btn-biru btn-besar">
@@ -35,7 +35,7 @@
     </nav>
 
     {{-- ===== Filter ===== --}}
-    <form method="GET" action="{{ route('rapat.jadwal') }}" id="formFilter" class="filter-bar">
+    <form method="GET" action="{{ route($rute) }}" id="formFilter" class="filter-bar">
         @if ($status !== '') <input type="hidden" name="status" value="{{ $status }}"> @endif
         @if ($semua && !$dari && !$sampai) <input type="hidden" name="semua" value="1"> @endif
 
@@ -71,7 +71,7 @@
             <input type="date" name="sampai" id="fSampai" class="tindih tindih-kanan" value="{{ $sampai }}" aria-label="Sampai tanggal">
         </div>
 
-        <a href="{{ route('rapat.jadwal') }}" class="btn-ikon-filter" title="Atur ulang filter" aria-label="Atur ulang filter">
+        <a href="{{ route($rute) }}" class="btn-ikon-filter" title="Atur ulang filter" aria-label="Atur ulang filter">
             <svg class="i"><use href="#i-ulang"/></svg>
         </a>
         <button type="submit" hidden>Cari</button>
@@ -88,7 +88,6 @@
             'draft'       => ['Draft',       'abu',    'edit'],
             'dibatalkan'  => ['Dibatalkan',  'merah',  'silang'],
         ];
-        $hariIni = now()->toDateString();
     @endphp
 
     <div class="tabel-bungkus">
@@ -111,6 +110,11 @@
                         [$lbl, $warna, $ikonSt] = $lencana[$st] ?? [(string) $r->status, 'abu', 'jam'];
                         $mulai = substr($r->waktu, 0, 5);
                         $akhir = $r->waktu_selesai ? substr($r->waktu_selesai, 0, 5) : null;
+
+                        // Aturan sama dengan JadwalRapatController (BISA_UBAH, batal(), selesai())
+                        $bolehUbah    = in_array($st, ['mendatang', 'terlewat', 'tertunda', 'draft', 'lainnya'], true);
+                        $bolehBatal   = !in_array($st, ['selesai', 'dibatalkan'], true);
+                        $bolehSelesai = in_array($st, ['berlangsung', 'terlewat'], true);
                     @endphp
                     <tr>
                         <td>{{ $rapat->firstItem() + $i }}</td>
@@ -119,7 +123,7 @@
                             <div class="nama-rapat">
                                 <svg class="i ikon-rapat"><use href="#i-kalender-plus"/></svg>
                                 <div>
-                                    <b>{{ $r->nama_rapat }}</b>
+                                    <button type="button" class="nama-link" data-lihat="{{ $r->id_rapat }}" title="Lihat detail rapat">{{ $r->nama_rapat }}</button>
                                     <small>{{ \Illuminate\Support\Str::limit($r->catatan_rapat, 70) }}</small>
                                 </div>
                             </div>
@@ -140,66 +144,50 @@
 
                         <td class="aksi-sel">
                             <div class="aksi-ikon">
-                                {{-- Lihat --}}
-                                <button type="button" class="ikon-btn biru" data-lihat="{{ $r->id_rapat }}" title="Lihat detail" aria-label="Lihat detail">
-                                    <svg class="i"><use href="#i-mata"/></svg>
-                                </button>
-
-                                {{-- Ubah / Notulensi --}}
-                                @if (in_array($st, ['mendatang', 'terlewat', 'tertunda', 'draft', 'lainnya'], true))
-                                    <button type="button" class="ikon-btn" data-edit="{{ $r->id_rapat }}" title="Ubah rapat" aria-label="Ubah rapat">
-                                        <svg class="i"><use href="#i-pensil"/></svg>
+                                {{-- Edit rapat --}}
+                                @if ($bolehUbah)
+                                    <button type="button" class="ikon-btn biru" data-edit="{{ $r->id_rapat }}" title="Edit rapat" aria-label="Edit rapat">
+                                        <svg class="i"><use href="#i-pensil"/></svg><span>Edit</span>
                                     </button>
-                                @elseif ($st === 'berlangsung')
-                                    <span class="ikon-btn mati" title="Rapat sedang berlangsung"><svg class="i"><use href="#i-pensil"/></svg></span>
-                                @elseif ($st === 'selesai')
-                                    <a class="ikon-btn" href="{{ route('notulensi.index', ['rapat' => $r->id_rapat]) }}" title="Notulensi rapat" aria-label="Notulensi rapat">
-                                        <svg class="i"><use href="#i-catatan"/></svg>
-                                    </a>
+                                @else
+                                    <span class="ikon-btn mati" title="Rapat dengan status ini tidak dapat diedit"><svg class="i"><use href="#i-pensil"/></svg><span>Edit</span></span>
                                 @endif
 
-                                {{-- Tandai selesai --}}
-                                @if (in_array($st, ['berlangsung', 'terlewat'], true))
-                                    <form method="POST" action="{{ route('rapat.selesai', $r->id_rapat) }}" class="satu"
-                                          onsubmit="return confirm('Tandai rapat ini sebagai selesai?')">
-                                        @csrf
-                                        <button type="submit" class="ikon-btn hijau" title="Tandai selesai" aria-label="Tandai selesai"><svg class="i"><use href="#i-centang"/></svg></button>
-                                    </form>
-                                @endif
-
-                                {{-- Batalkan --}}
-                                @if (in_array($st, ['mendatang', 'terlewat', 'tertunda', 'draft', 'lainnya'], true))
+                                {{-- Batalkan rapat --}}
+                                @if ($bolehBatal)
                                     <form method="POST" action="{{ route('rapat.batal', $r->id_rapat) }}" class="satu"
                                           onsubmit="return confirm('Batalkan rapat ini? Peserta tidak akan menerima undangan lagi.')">
                                         @csrf
-                                        <button type="submit" class="ikon-btn merah" title="Batalkan rapat" aria-label="Batalkan rapat"><svg class="i"><use href="#i-x"/></svg></button>
+                                        <button type="submit" class="ikon-btn merah" title="Batalkan rapat" aria-label="Batalkan rapat"><svg class="i"><use href="#i-x"/></svg><span>Batalkan</span></button>
                                     </form>
+                                @else
+                                    <span class="ikon-btn mati" title="Rapat sudah selesai atau dibatalkan"><svg class="i"><use href="#i-x"/></svg><span>Batalkan</span></span>
                                 @endif
 
-                                {{-- Salin (rapat selesai) --}}
-                                @if ($st === 'selesai')
-                                    <a class="ikon-btn" href="{{ route('rapat.salin', $r->id_rapat) }}" title="Salin menjadi rapat baru" aria-label="Salin rapat">
-                                        <svg class="i"><use href="#i-salin"/></svg>
-                                    </a>
-                                @endif
-
-                                {{-- Aktifkan kembali (rapat dibatalkan) --}}
-                                @if ($st === 'dibatalkan')
-                                    @if ($r->tanggal->toDateString() >= $hariIni)
-                                        <form method="POST" action="{{ route('rapat.aktifkan', $r->id_rapat) }}" class="satu"
-                                              onsubmit="return confirm('Aktifkan kembali rapat ini?')">
-                                            @csrf
-                                            <button type="submit" class="ikon-btn" title="Aktifkan kembali" aria-label="Aktifkan kembali"><svg class="i"><use href="#i-riwayat"/></svg></button>
-                                        </form>
-                                    @else
-                                        <span class="ikon-btn mati" title="Tanggal sudah lewat"><svg class="i"><use href="#i-riwayat"/></svg></span>
-                                    @endif
+                                {{-- Selesaikan rapat --}}
+                                @if ($bolehSelesai)
+                                    <form method="POST" action="{{ route('rapat.selesai', $r->id_rapat) }}" class="satu"
+                                          onsubmit="return confirm('Tandai rapat ini sebagai selesai?')">
+                                        @csrf
+                                        <button type="submit" class="ikon-btn hijau" title="Selesaikan rapat" aria-label="Selesaikan rapat"><svg class="i"><use href="#i-centang"/></svg><span>Selesai</span></button>
+                                    </form>
+                                @else
+                                    <span class="ikon-btn mati" title="Hanya untuk rapat yang sedang berlangsung atau terlewat"><svg class="i"><use href="#i-centang"/></svg><span>Selesai</span></span>
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="kosong">Tidak ada rapat yang sesuai dengan filter.</td></tr>
+                    <tr>
+                        <td colspan="7" class="kosong">
+                            @if ($saya && !$punyaRapat)
+                                Belum ada rapat yang Anda buat.
+                                <a href="{{ route('rapat.create') }}">Buat rapat / undangan sekarang</a>
+                            @else
+                                Tidak ada rapat yang sesuai dengan filter.
+                            @endif
+                        </td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
@@ -214,7 +202,7 @@
                 Tidak ada rapat
             @endif
             @if ($terbatas)
-                · <a href="{{ route('rapat.jadwal', array_merge(request()->except(['page', 'dari', 'sampai']), ['semua' => 1])) }}">Lihat semua tanggal</a>
+                · <a href="{{ route($rute, array_merge(request()->except(['page', 'dari', 'sampai']), ['semua' => 1])) }}">Lihat semua tanggal</a>
             @endif
         </div>
 
@@ -281,7 +269,7 @@
     <dialog id="dlgEdit" class="dialog dialog-lebar">
         <form id="formEdit" novalidate>
             <div class="dialog-kepala">
-                <b>Ubah Rapat</b>
+                <b>Edit Rapat</b>
                 <button type="button" class="dialog-tutup" data-tutup aria-label="Tutup"><svg class="i"><use href="#i-x"/></svg></button>
             </div>
             <div class="dialog-isi">
@@ -318,7 +306,32 @@
                     @endforeach
                 </select>
 
-                <p class="catatan-edit">Peserta tidak diubah di sini. Untuk peserta berbeda, buat rapat baru atau salin rapat ini.</p>
+                {{-- ----- Peserta ----- --}}
+                <div class="edit-peserta">
+                    <div class="edit-peserta-kepala"><b id="ePesertaJudul">Peserta (0 orang)</b></div>
+
+                    <div class="kotak-cari-e">
+                        <input type="search" id="eCari" placeholder="Cari nama / NIK / unit / jabatan pegawai untuk ditambahkan..." autocomplete="off">
+                        <div id="eHasil" class="hasil-cari-e" hidden></div>
+                    </div>
+
+                    <select id="eUnit" aria-label="Tambah semua pegawai dari unit">
+                        <option value="">+ Tambah semua pegawai dari unit...</option>
+                        @foreach ($units as $u)
+                            <option value="{{ $u }}">{{ $u }}</option>
+                        @endforeach
+                    </select>
+
+                    <ul id="ePeserta" class="daftar-edit-peserta"></ul>
+                </div>
+
+                <div id="eKirimBaris" class="kirim-baris" hidden>
+                    <label class="cek-baris">
+                        <input type="checkbox" id="eKirimUlang" checked>
+                        <span>Kirim pemberitahuan perubahan jadwal/tempat ke peserta lama via WhatsApp</span>
+                    </label>
+                </div>
+                <p id="eInfoKirim" class="catatan-edit"></p>
             </div>
             <div class="dialog-kaki">
                 <button type="button" class="btn" data-tutup>Batal</button>
@@ -333,4 +346,4 @@
         window.JADWAL = @json($konfig);
     </script>
     <script src="{{ asset('js/jadwal-rapat.js') }}?v={{ @filemtime(public_path('js/jadwal-rapat.js')) }}"></script>
-@endpush    
+@endpush

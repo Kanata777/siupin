@@ -1,0 +1,90 @@
+/* =====================================================================
+   Notulensi Rapat. Memakai variabel dari app.css (--biru, --navy, --garis, dst).
+   ===================================================================== */
+
+/* Daftar */
+.nt-bar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 16px;margin-bottom:12px;border-bottom:1px solid var(--garis)}
+.nt-tabs{display:flex;flex-wrap:wrap}
+.nt-tab{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;margin-bottom:-1px;border:0;border-bottom:2px solid transparent;background:none;
+  font:inherit;font-size:13.5px;font-weight:500;color:var(--abu);text-decoration:none;cursor:pointer}
+.nt-tab:hover{color:var(--navy)}
+.nt-tab[aria-selected=true],.nt-tab.aktif{color:var(--navy);font-weight:600;border-bottom-color:var(--biru)}
+.nt-tab small{padding:1px 7px;border-radius:3px;background:var(--tebal);font-size:12px;color:var(--abu);font-variant-numeric:tabular-nums}
+.nt-cari{display:flex;gap:8px;margin-bottom:8px}
+.nt-cari input{width:240px;margin:0}
+.nt-tabel{padding:0;overflow-x:auto}
+.nt-tabel td small{display:block;color:var(--abu);font-size:12.5px}
+.nt-tabel .aksi{text-align:right;white-space:nowrap}
+.nt-kosong{padding:28px 16px;text-align:center;color:var(--abu)}
+.nt-halaman{margin-top:12px}
+
+/* Lencana */
+.nt-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.nt-badge.hijau{background:#e6f1ea;color:#256a42}
+.nt-badge.kuning{background:#f7ecd3;color:var(--kuning)}
+.nt-badge.abu{background:var(--tebal);color:#4d596b}
+.nt-badge.merah{background:#f6e0dc;color:#9a3626}
+
+/* Info rapat */
+.nt-info{display:flex;flex-wrap:wrap;align-items:center;gap:8px 28px}
+.nt-info h2{flex:1 1 100%;margin:0;font-size:17px;font-weight:600;color:var(--navy)}
+.nt-info span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--abu)}
+.nt-info .nt-badge{margin-left:auto}
+
+/* Susunan halaman */
+.nt-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:14px;align-items:start}
+.nt-grid .kartu{margin-bottom:14px}
+.nt-kartu-judul{margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid var(--garis-halus);font-size:14px;font-weight:600;color:var(--navy)}
+.nt-wajib{color:var(--merah)}
+.nt-field{margin-bottom:14px}
+.nt-field textarea{min-height:92px;margin-bottom:0;line-height:1.55}
+.nt-field textarea:disabled,.nt-tl input:disabled,.nt-tl select:disabled{background:#f7f8fa;color:var(--teks);opacity:1;cursor:default}
+.nt-bantu{margin:3px 0 0;font-size:12px;color:var(--abu)}
+.nt-err{margin:4px 0 0;font-size:12.5px;color:var(--merah)}
+.nt-field.salah textarea{border-color:var(--merah)}
+
+/* Tindak lanjut */
+.nt-tl{overflow-x:auto}
+.nt-tl table{min-width:640px}
+.nt-tl td{padding:6px 8px;vertical-align:middle}
+.nt-tl th{padding:8px}
+.nt-tl td input,.nt-tl td select{margin:0;height:32px}
+.nt-tl .no{width:36px;text-align:center;color:var(--abu)}
+.nt-tl .tgl{width:150px}.nt-tl .sts{width:110px}.nt-tl .aksi{width:70px;text-align:center}
+.nt-hapus{height:30px;padding:0 9px;border:1px solid #d9a69d;border-radius:3px;background:#fff;color:var(--merah);font:inherit;font-size:12.5px;cursor:pointer}
+.nt-hapus:hover{background:#fbf1ef}
+.nt-tambah{margin-top:10px}
+
+/* Info samping */
+.nt-dl{margin:0;font-size:13.5px}
+.nt-dl div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--garis-halus)}
+.nt-dl div:last-child{border-bottom:0}
+.nt-dl dt{color:var(--abu)}
+.nt-dl dd{margin:0;font-weight:500;text-align:right;color:var(--navy)}
+
+/* Dokumentasi */
+.nt-foto{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.nt-foto figure{margin:0;border:1px solid var(--garis);border-radius:3px;overflow:hidden;background:#fff}
+.nt-foto img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--tebal)}
+.nt-foto label{display:flex;align-items:center;gap:6px;margin:0;padding:6px 8px;font-size:12.5px;font-weight:400;color:var(--abu);cursor:pointer}
+.nt-berkas{list-style:none;margin:0 0 12px;padding:0}
+.nt-berkas li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--garis-halus);font-size:13.5px}
+.nt-berkas li a{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--biru)}
+.nt-berkas small{color:var(--abu)}
+.nt-berkas label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12.5px;font-weight:400;color:var(--abu)}
+.nt-unggah input[type=file]{width:100%;height:auto;padding:8px 10px;margin-bottom:4px;border:1px dashed #9fb3cf;background:#fafbfd;font-size:13px}
+.nt-sub{margin:16px 0 8px;font-size:13.5px;font-weight:600;color:var(--navy)}
+
+/* Presensi */
+.nt-ringkas{margin:0 0 12px;font-size:14px}
+.nt-ringkas b{font-size:18px;color:var(--navy)}
+.nt-hadir{overflow-x:auto;margin:0 -16px -16px}
+.nt-hadir th:first-child,.nt-hadir td:first-child{padding-left:16px;width:48px}
+
+/* Tombol bawah */
+.nt-aksi{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.nt-aksi .jarak{flex:1}
+
+[hidden]{display:none !important}
+@media (max-width:1000px){.nt-grid{grid-template-columns:1fr}}
+@media (max-width:600px){.nt-cari input{width:100%}.nt-cari{width:100%}.nt-info .nt-badge{margin-left:0}}

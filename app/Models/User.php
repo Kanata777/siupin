@@ -10,12 +10,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+// `role` sengaja TIDAK ada di Fillable: peran hanya boleh diubah lewat kode/SQL/artisan,
+// tidak lewat input form.
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_USER        = 'user';
+
+    /** Super Admin: boleh melihat seluruh rapat, undangan, dan status WhatsApp */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
 
     /**
      * Get the attributes that should be cast.

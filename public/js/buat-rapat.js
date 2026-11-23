@@ -1,4 +1,5 @@
-/* Halaman Buat Rapat — SIUPIN */
+/* Halaman Buat Rapat — SIUPIN
+   Simpan sebagai: public/js/buat-rapat.js (ganti seluruh isi file lama) */
 (function () {
   'use strict';
 
@@ -8,7 +9,7 @@
   var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
   var peserta = new Map();      // nomor_wa -> { nomor_wa, nama, tags:Set }
-  var tampilSemua = false;
+  var kataTerpilih = '';        // kata kunci pencarian di daftar peserta terpilih
   var tersimpan = K.tersimpan || [];
 
   var elForm = $('#formRapat'), elHidden = $('#pesertaJson');
@@ -18,6 +19,9 @@
   var elIsiKel = $('#isiKelompok');
   var elTempat = $('#id_tempat'), elTanggal = $('#tanggal'), elWaktu = $('#waktu'), elSelesai = $('#waktu_selesai'), elBadge = $('#badgeTempat');
   var elToast = $('#toast');
+  var elLuarNama = $('#luarNama'), elLuarWa = $('#luarWa'), btnLuar = $('#btnTambahLuar');
+  var elCariTerpilih = $('#cariTerpilih'), elKotakCariTerpilih = $('#kotakCariTerpilih');
+  var elInfoCari = $('#infoCariTerpilih'), elHapusSemua = $('#btnHapusSemua');
 
   function buat(tag, kelas, teks) {
     var e = document.createElement(tag);
@@ -70,10 +74,30 @@
     });
   }
 
+  /* ---------- Nomor WA: samakan format (0812.. / +62812.. / 812.. -> 62812..) ---------- */
+  function normNomor(n) {
+    var d = String(n || '').replace(/\D+/g, '');
+    if (!d) return null;
+    if (d.indexOf('0') === 0) d = '62' + d.slice(1);
+    else if (d.indexOf('8') === 0) d = '62' + d;
+    return (d.indexOf('62') === 0 && d.length >= 10 && d.length <= 15) ? d : null;
+  }
+
+  /** Cari peserta yang nomornya sama (walau format penulisannya beda) */
+  function cariSama(nomor) {
+    var langsung = peserta.get(nomor);
+    if (langsung) return langsung;
+    var n = normNomor(nomor);
+    if (!n) return null;
+    var hasil = null;
+    peserta.forEach(function (e) { if (!hasil && normNomor(e.nomor_wa) === n) hasil = e; });
+    return hasil;
+  }
+
   /* ---------- Peserta terpilih ---------- */
   function tambah(daftar, tag) {
     daftar.forEach(function (p) {
-      var e = peserta.get(p.nomor_wa);
+      var e = cariSama(p.nomor_wa);
       if (!e) { e = { nomor_wa: p.nomor_wa, nama: p.nama, tags: new Set() }; peserta.set(p.nomor_wa, e); }
       e.tags.add(tag);
     });
@@ -86,37 +110,90 @@
     });
   }
 
+  /** Cocokkan peserta dengan kata kunci (nama atau nomor WA) */
+  function cocokCari(e, q, qd) {
+    if (String(e.nama).toLowerCase().indexOf(q) >= 0) return true;
+    if (qd.length >= 3) {
+      var no = String(e.nomor_wa).replace(/\D+/g, '');
+      if (no.indexOf(qd) >= 0) return true;
+      if (qd.charAt(0) === '0' && no.indexOf('62' + qd.slice(1)) >= 0) return true;
+    }
+    return false;
+  }
+
   function render() {
     var daftar = Array.from(peserta.values());
-    elJudul.textContent = 'Peserta Terpilih (' + daftar.length + ' orang)';
-    elJumlah.textContent = daftar.length + ' orang';
+    var total = daftar.length;
+    elJudul.textContent = 'Peserta Terpilih (' + total + ' orang)';
+    elJumlah.textContent = total + ' orang';
     elChip.textContent = '';
 
-    if (!daftar.length) {
-      elChip.appendChild(buat('span', 'kosong-kecil', 'Belum ada peserta dipilih.'));
+    if (elHapusSemua) elHapusSemua.hidden = !total;
+    if (elKotakCariTerpilih) elKotakCariTerpilih.hidden = !total;
+    if (!total && kataTerpilih) {
+      kataTerpilih = '';
+      if (elCariTerpilih) elCariTerpilih.value = '';
     }
 
-    (tampilSemua ? daftar : daftar.slice(0, 6)).forEach(function (e) {
+    var q = kataTerpilih.toLowerCase();
+    var qd = q.replace(/\D+/g, '');
+    var tampil = q ? daftar.filter(function (e) { return cocokCari(e, q, qd); }) : daftar;
+
+    if (elInfoCari) elInfoCari.textContent = q ? (tampil.length + ' dari ' + total + ' peserta') : '';
+
+    if (!total) {
+      elChip.appendChild(buat('span', 'kosong-kecil', 'Belum ada peserta dipilih.'));
+    } else if (!tampil.length) {
+      elChip.appendChild(buat('span', 'kosong-kecil', '"' + kataTerpilih + '" belum ada di daftar peserta.'));
+    }
+
+    // tampilkan SEMUA peserta (hasil pencarian bila ada kata kunci); tiap peserta bisa dihapus
+    tampil.forEach(function (e) {
       var s = buat('span', 'chip-orang');
       s.appendChild(ikon('user'));
       s.appendChild(document.createTextNode(e.nama + ' '));
+      if (e.tags.has('luar')) s.appendChild(buat('em', 'tag-luar', 'Luar'));
       var x = buat('button', 'x');
       x.appendChild(ikon('x'));
       x.type = 'button';
       x.setAttribute('aria-label', 'Hapus ' + e.nama);
-      x.addEventListener('click', function () { peserta.delete(e.nomor_wa); render(); });
+      x.addEventListener('click', function () {
+        peserta.delete(e.nomor_wa);
+        render();
+        segarkanHasil();
+      });
       s.appendChild(x);
       elChip.appendChild(s);
     });
 
-    if (daftar.length > 6) {
-      var b = buat('button', 'chip-orang lebih', tampilSemua ? 'Ringkas' : '+' + (daftar.length - 6) + ' lainnya');
-      b.type = 'button';
-      b.addEventListener('click', function () { tampilSemua = !tampilSemua; render(); });
-      elChip.appendChild(b);
-    }
-
+    // yang dikirim ke server tetap SELURUH peserta, bukan hanya hasil pencarian
     elHidden.value = JSON.stringify(daftar.map(function (e) { return { nomor_wa: e.nomor_wa, nama: e.nama }; }));
+  }
+
+  /* ---------- Cari & hapus semua di Peserta Terpilih ---------- */
+  if (elCariTerpilih) {
+    elCariTerpilih.addEventListener('input', function () {
+      kataTerpilih = elCariTerpilih.value.trim();
+      render();
+    });
+    elCariTerpilih.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') e.preventDefault();               // jangan men-submit form rapat
+      if (e.key === 'Escape') { elCariTerpilih.value = ''; kataTerpilih = ''; render(); }
+    });
+  }
+
+  if (elHapusSemua) {
+    elHapusSemua.addEventListener('click', function () {
+      if (!peserta.size) return;
+      if (!window.confirm('Hapus semua ' + peserta.size + ' peserta dari rapat ini?')) return;
+      peserta.clear();
+      $$('.acc-cek, .acc-semua').forEach(function (c) { c.checked = false; });
+      kataTerpilih = '';
+      if (elCariTerpilih) elCariTerpilih.value = '';
+      render();
+      segarkanHasil();
+      notif('Semua peserta dihapus dari rapat.');
+    });
   }
 
   /* ---------- Tab ---------- */
@@ -139,7 +216,7 @@
     elHasil.hidden = false;
     if (!data.length) { elHasil.appendChild(buat('div', 'kosong-kecil', 'Pegawai tidak ditemukan (atau belum punya nomor WA).')); return; }
     data.forEach(function (p) {
-      var sudah = peserta.has(p.nomor_wa);
+      var sudah = !!cariSama(p.nomor_wa);
       var b = buat('button', 'hasil-item' + (sudah ? ' sudah' : ''));
       b.type = 'button';
       b.appendChild(buat('b', null, p.nama));
@@ -154,6 +231,10 @@
     });
   }
 
+  function segarkanHasil() {
+    if (!elHasil.hidden && hasilTerakhir.length) renderHasil(hasilTerakhir);
+  }
+
   elCari.addEventListener('input', function () {
     clearTimeout(timerCari);
     var q = elCari.value.trim();
@@ -164,6 +245,37 @@
   });
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.kotak-cari')) elHasil.hidden = true;
+  });
+
+  /* ---------- Peserta dari luar (sementara, tidak masuk data pegawai) ---------- */
+  function tambahLuar() {
+    var nama = elLuarNama.value.trim();
+    if (!nama) { notif('Nama peserta dari luar wajib diisi.', true); elLuarNama.focus(); return; }
+
+    var wa = normNomor(elLuarWa.value);
+    if (!wa) {
+      notif('Nomor WA tidak valid. Contoh: 0812xxxxxxxx atau 62812xxxxxxxx.', true);
+      elLuarWa.focus();
+      return;
+    }
+
+    var sama = cariSama(wa);
+    if (sama) { notif('Nomor itu sudah ada di daftar peserta (' + sama.nama + ').', true); elLuarWa.focus(); return; }
+
+    tambah([{ nomor_wa: wa, nama: nama }], 'luar');
+    render();
+    elLuarNama.value = '';
+    elLuarWa.value = '';
+    elLuarNama.focus();
+    notif(nama + ' ditambahkan sebagai peserta dari luar.');
+  }
+
+  btnLuar.addEventListener('click', tambahLuar);
+  [elLuarNama, elLuarWa].forEach(function (el) {
+    // Enter di kolom ini jangan men-submit form rapat
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); tambahLuar(); }
+    });
   });
 
   /* ---------- Akordeon: unit / jabatan / kelompok ---------- */
@@ -261,7 +373,8 @@
   function cekTempat() {
     elBadge.className = 'badge-tempat';
     elBadge.textContent = '';
-    if (!elTempat.value || !elTanggal.value || !elWaktu.value) return;
+    // Tempat di luar kantor tidak diperiksa ketersediaannya
+    if (!elTempat.value || elTempat.value === 'luar' || !elTanggal.value || !elWaktu.value) return;
     var url = K.urlCek + '?id_tempat=' + encodeURIComponent(elTempat.value)
             + '&tanggal=' + encodeURIComponent(elTanggal.value)
             + '&waktu=' + encodeURIComponent(elWaktu.value)
@@ -293,9 +406,22 @@
   }
   [elTanggal, elWaktu, elSelesai].forEach(function (el) {
     if (!el) return;
+    var terakhirPilih = 0;
+
     el.addEventListener('input', segarkanTampilan);
-    el.addEventListener('change', segarkanTampilan);
-    el.addEventListener('click', function () { try { el.showPicker(); } catch (e) { /* abaikan */ } });
+    el.addEventListener('change', function () {
+      terakhirPilih = Date.now();   // tandai saat pengguna baru memilih nilai
+      segarkanTampilan();
+    });
+
+    // <select> sudah membuka daftarnya sendiri, jadi tidak perlu showPicker()
+    if (el.tagName === 'SELECT') return;
+
+    el.addEventListener('click', function () {
+      // abaikan klik yang muncul tepat setelah memilih nilai (penyebab picker muncul lagi)
+      if (Date.now() - terakhirPilih < 400) return;
+      try { el.showPicker(); } catch (e) { /* abaikan */ }
+    });
   });
 
   var elFile = $('#lampiran'), elNamaFile = $('#namaFile');
@@ -361,6 +487,10 @@
       peserta.clear();
       $$('.acc-cek, .acc-semua').forEach(function (c) { c.checked = false; });
       elNamaKel.value = '';
+      elLuarNama.value = '';
+      elLuarWa.value = '';
+      kataTerpilih = '';
+      if (elCariTerpilih) elCariTerpilih.value = '';
       render(); aturMetode(); cekTempat(); segarkanTampilan();
       if (elNamaFile) elNamaFile.textContent = 'Pilih File';
     }, 0);

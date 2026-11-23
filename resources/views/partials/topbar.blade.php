@@ -24,5 +24,12 @@
             <span class="user-ava"><svg class="i"><use href="#i-user"/></svg></span>
             <span class="user-nama">{{ auth()->user()->name ?? 'SDM YNH' }}</span>
         </div>
+        <form method="POST" action="{{ route('logout') }}" style="margin:0 0 0 12px">
+            @csrf
+            <button type="submit" title="Keluar dari SIUPIN"
+                    style="border:1px solid #c9d2dc;background:#fff;color:#1b2a3f;border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer">
+                Keluar
+            </button>
+        </form>
     </div>
 </header>
