@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\KelompokRapatDetail;
 use App\Models\Pegawai;
 use App\Models\Rapat;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -48,9 +49,11 @@ class AbsensiService
             return null;
         }
 
+        // skema dan port mengikuti APP_URL (mis. http://localhost:8000 saat uji coba lokal)
         $skema = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: request()->getScheme();
+        $port  = parse_url((string) config('app.url'), PHP_URL_PORT);
 
-        return $skema . '://' . trim((string) config('absen.host'));
+        return $skema . '://' . trim((string) config('absen.host')) . ($port ? ':' . $port : '');
     }
 
     /** Link yang dimasukkan ke QR (domain absensi bila dua domain, selain itu domain aplikasi + /absen) */
@@ -94,7 +97,11 @@ class AbsensiService
     //  ATURAN BUKA / TUTUP
     // ======================================================================
 
-    /** Alasan absensi belum/tidak bisa dilakukan; null bila boleh absen */
+    /**
+     * Alasan absensi belum/tidak bisa dilakukan; null bila boleh absen.
+     * Absensi hanya dibuka saat rapat BERLANGSUNG (sama dengan status "Berlangsung" di Jadwal Rapat):
+     * pada hari rapat, dari jam mulai sampai jam selesai (bila jam selesai kosong: mulai + 2 jam).
+     */
     public static function alasanTutup(Rapat $r): ?string
     {
         $st = strtolower(trim((string) $r->status));
@@ -108,13 +115,44 @@ class AbsensiService
         if ($st === 'draft') {
             return 'Rapat ini masih berstatus draft.';
         }
+
+        // rapat yang sudah ditandai selesai (Sudah Terlaksana) tidak menerima absensi lagi
+        $belumTerlaksana = str_contains($st, 'belum') || str_contains($st, 'jadwal');
+        if (! $belumTerlaksana && (str_contains($st, 'laksana') || str_contains($st, 'selesai'))) {
+            return 'Rapat ini sudah selesai, absensi ditutup.';
+        }
+
         if (! $r->tanggal->isToday()) {
             return $r->tanggal->isFuture()
-                ? 'Absensi baru dibuka pada hari rapat (' . $r->tanggal->translatedFormat('d F Y') . ').'
-                : 'Absensi untuk rapat ini sudah ditutup.';
+                ? 'Absensi dibuka saat rapat berlangsung, pada ' . $r->tanggal->translatedFormat('d F Y')
+                    . ' pukul ' . substr((string) $r->waktu, 0, 5) . '.'
+                : 'Rapat ini sudah berakhir, absensi ditutup.';
+        }
+
+        [$mulai, $akhir] = self::jendela($r);
+        $sekarang = now();
+
+        if ($sekarang->lt($mulai)) {
+            return 'Absensi dibuka saat rapat dimulai pukul ' . $mulai->format('H:i') . '.';
+        }
+        if ($sekarang->gt($akhir)) {
+            return 'Rapat sudah berakhir pukul ' . $akhir->format('H:i') . ', absensi ditutup.';
         }
 
         return null;
+    }
+
+    /** Waktu rapat berlangsung: [mulai, selesai] pada tanggal rapat */
+    private static function jendela(Rapat $r): array
+    {
+        $tgl     = $r->tanggal->toDateString();
+        $mulai   = Carbon::parse($tgl . ' ' . substr((string) $r->waktu, 0, 8));
+        $selesai = $r->getAttributes()['waktu_selesai'] ?? null;
+        $akhir   = $selesai
+            ? Carbon::parse($tgl . ' ' . substr((string) $selesai, 0, 8))
+            : $mulai->copy()->addHours(2);
+
+        return [$mulai, $akhir];
     }
 
     // ======================================================================

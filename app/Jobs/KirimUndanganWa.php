@@ -1,10 +1,11 @@
 <?php
 
-// Simpan sebagai: app/Jobs/KirimUndanganWa.php
+// Simpan sebagai: app/Jobs/KirimUndanganWa.php (ganti SELURUH isi file lama)
 
 namespace App\Jobs;
 
 use App\Models\RapatUndangan;
+use App\Services\AbsensiService;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -127,6 +128,22 @@ class KirimUndanganWa implements ShouldQueue
         }
         if (!empty($r->catatan_rapat)) {
             $baris[] = "Agenda       : {$r->catatan_rapat}";
+        }
+
+        // Link absensi SIUPIN (hanya bisa dipakai saat rapat berlangsung).
+        // Bila link gagal dibuat, undangan tetap dikirim tanpa link.
+        try {
+            $linkAbsen = AbsensiService::url((int) $r->getKey());
+        } catch (Throwable $e) {
+            Log::warning('Link absensi gagal dibuat untuk undangan (rapat ' . $r->getKey() . '): ' . $e->getMessage());
+            $linkAbsen = null;
+        }
+
+        if ($linkAbsen) {
+            $baris[] = "";
+            $baris[] = "*Absensi kehadiran (SIUPIN):*";
+            $baris[] = $linkAbsen;
+            $baris[] = "_Link absensi hanya aktif saat rapat berlangsung. Gunakan nomor WhatsApp ini untuk absen._";
         }
 
         $baris[] = "";
