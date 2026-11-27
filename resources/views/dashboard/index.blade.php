@@ -1,3 +1,4 @@
+{{-- Simpan sebagai: resources/views/dashboard/index.blade.php (ganti SELURUH isi file lama) --}}
 @extends('layouts.app')
 
 @section('title', 'Dashboard Rapat')
@@ -35,6 +36,11 @@
 @endsection
 
 @section('content')
+
+    {{-- User biasa hanya melihat data rapat yang dia buat --}}
+    @unless (\App\Models\Rapat::bolehSemua())
+        <div class="alert info">Menampilkan data rapat yang Anda buat.</div>
+    @endunless
 
     @if (!$adaData)
         <div class="alert gagal">Tabel <b>rapat</b> di database <b>siupin_nh</b> masih kosong, jadi semua angka bernilai 0.</div>

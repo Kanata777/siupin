@@ -170,7 +170,7 @@
 
         /* kotak pilih: pencarian + akordeon + peserta luar dalam satu bingkai */
         .rapat-buat .kotak-pilih { padding:0; border:1px solid var(--rb-line); border-radius:9px; }
-        .rapat-buat #tabKelompok .kotak-pilih { display:flex; flex-direction:column; gap:10px; padding:16px; }
+        .rapat-buat #tabKelompok .kotak-pilih { display:flex; flex-direction:column; gap:12px; padding:16px; }
         .rapat-buat .aksi-kelompok { display:flex; gap:8px; }
 
         .rapat-buat .kotak-cari { position:relative; margin:0; padding:12px; border-bottom:1px solid var(--rb-line-soft); }
@@ -243,6 +243,44 @@
         .rapat-buat .chip-orang.lebih { padding:0 12px; background:#fff; border-color:var(--rb-blue); color:var(--rb-blue); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
         .rapat-buat .chip-orang .tag-luar { font-style:normal; padding:0 6px; border-radius:4px; background:#fdf0cf; color:#8a5a00; font-size:10.5px; font-weight:700; }
 
+        /* ---------- Kelompok sementara ---------- */
+        .rapat-buat #tabKelompok .kotak-cari { padding:0; border:0; }
+        .rapat-buat #tabKelompok .kotak-cari > .i { left:12px; }
+        .rapat-buat #tabKelompok .hasil-cari { left:0; right:0; top:calc(100% + 4px); }
+        .rapat-buat .grup-luar { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto; gap:8px; align-items:stretch; }
+        .rapat-buat .chip-draft {
+            display:flex; flex-wrap:wrap; align-content:flex-start; gap:8px; min-height:56px; max-height:200px;
+            overflow-y:auto; padding:10px; background:#fff; border:1px solid var(--rb-line); border-radius:9px;
+        }
+        .rapat-buat .daftar-grup { display:flex; flex-direction:column; gap:10px; }
+        .rapat-buat .grup-kartu { border:1px solid var(--rb-line); border-radius:9px; background:#fff; }
+        .rapat-buat .grup-kepala {
+            display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px;
+            background:var(--rb-soft); border-bottom:1px solid var(--rb-line-soft); border-radius:9px 9px 0 0; font-size:13px;
+        }
+        .rapat-buat .grup-kepala small { color:var(--rb-mute); font-weight:400; }
+        .rapat-buat .grup-isi { display:flex; flex-wrap:wrap; gap:8px; padding:10px; max-height:160px; overflow-y:auto; }
+        .rapat-buat .chip-orang .tag-grup {
+            font-style:normal; padding:0 6px; border-radius:4px; background:#d6efef; color:#0b6b6d;
+            font-size:10.5px; font-weight:700; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+
+        /* ---------- Perapian: peserta terpilih & kelompok sementara ---------- */
+        /* baris kepala hanya tampil jika ada tombol "Hapus Semua" */
+        .rapat-buat .peserta-kepala:not(:has(#btnHapusSemua:not([hidden]))) { display:none; }
+        .rapat-buat .peserta-kepala { justify-content:flex-end; }
+
+        /* kotak chip kosong tidak ditampilkan; muncul otomatis saat ada peserta */
+        .rapat-buat .peserta-chip:empty { display:none; }
+        .rapat-buat .peserta-terpilih:has(.peserta-chip:empty):not(:has(#kotakCariTerpilih:not([hidden]))) {
+            min-height:0; flex:0;
+        }
+
+        /* tab Kelompok Sementara: jarak lebih lega, anggota draft kosong lebih ringkas */
+        .rapat-buat #tabKelompok .kotak-pilih { gap:14px; }
+        .rapat-buat .chip-draft:empty { min-height:44px; background:var(--rb-soft); border-style:dashed; }
+        .rapat-buat .aksi-kelompok .btn { flex:1; }
+
         /* ---------- Tombol ---------- */
         .rapat-buat .btn {
             display:inline-flex; align-items:center; justify-content:center; gap:8px; height:var(--rb-h); margin:0; padding:0 16px;
@@ -308,6 +346,7 @@
         @@media (max-width:600px) {
             .rapat-buat .f-baris { grid-template-columns:1fr; }
             .rapat-buat .peserta-luar-baris { grid-template-columns:1fr; }
+            .rapat-buat .grup-luar { grid-template-columns:1fr; }
             .rapat-buat .aksi-bar { flex-wrap:wrap; }
             .rapat-buat .aksi-bar .spasi { display:none; }
             .rapat-buat .aksi-bar .btn { flex:1 1 140px; }
@@ -567,7 +606,7 @@
                             <svg class="i"><use href="#i-users"/></svg> Pilih Peserta
                         </button>
                         <button type="button" class="tab-peserta" data-tab="kelompok">
-                            <svg class="i"><use href="#i-layers"/></svg> Buat Kelompok
+                            <svg class="i"><use href="#i-layers"/></svg> Kelompok Sementara
                         </button>
                     </div>
 
@@ -631,24 +670,56 @@
                         </div>
                     </div>
 
-                    {{-- Tab: Buat Kelompok --}}
+                    {{-- Tab: Kelompok Sementara (hanya untuk rapat ini, tidak disimpan ke database) --}}
                     <div id="tabKelompok" class="isi-tab" hidden>
                         <div class="kotak-pilih">
-                            <p class="bantu">Simpan peserta yang sedang terpilih sebagai kelompok, agar bisa dipakai lagi di rapat berikutnya.</p>
+                            <p class="bantu">Kelompok ini hanya berlaku untuk rapat yang sedang dibuat. Tidak disimpan ke database dan tidak muncul di daftar Kelompok Rapat. Anggotanya otomatis masuk ke Peserta Terpilih.</p>
+
                             <div class="f">
                                 <label for="namaKelompok">Nama Kelompok</label>
-                                <input type="text" id="namaKelompok" maxlength="100" placeholder="Contoh: Tim Verifikasi RKA">
+                                <input type="text" id="namaKelompok" maxlength="100" placeholder="Contoh: Tim Verifikasi RKA" autocomplete="off">
                             </div>
-                            <p class="bantu">Anggota: <b id="jumlahAnggota">0 orang</b> (dari Peserta Terpilih di bawah). Pilih peserta lewat tab "Pilih Peserta".</p>
+
+                            <div class="f">
+                                <span class="f-label">Cari Anggota</span>
+                                <div class="kotak-cari">
+                                    <svg class="i"><use href="#i-cari"/></svg>
+                                    <input type="search" id="cariAnggota" placeholder="Cari pegawai (nama, NIK, unit, atau jabatan)..." autocomplete="off">
+                                    <div id="hasilAnggota" class="hasil-cari" hidden></div>
+                                </div>
+                            </div>
+
+                            <div class="f">
+                                <span class="f-label">Atau tambah dari luar <span class="bantu-inline">(tidak masuk daftar pegawai)</span></span>
+                                <div class="grup-luar">
+                                    <input type="text" id="grupLuarNama" maxlength="100" placeholder="Nama lengkap" autocomplete="off">
+                                    <input type="tel" id="grupLuarWa" maxlength="20" inputmode="tel" placeholder="Nomor WA, mis. 0812xxxxxxx" autocomplete="off">
+                                    <button type="button" class="btn btn-biru" id="btnGrupLuar">Tambah</button>
+                                </div>
+                            </div>
+
+                            <div class="f">
+                                <span class="f-label">Anggota kelompok: <b id="jumlahDraft">0 orang</b></span>
+                                <div class="chip-draft" id="chipDraft"></div>
+                            </div>
+
                             <div class="aksi-kelompok">
-                                <button type="button" class="btn btn-biru" id="btnSimpanKelompok">Simpan Kelompok</button>
+                                <button type="button" class="btn btn-biru" id="btnBuatGrup">Buat Kelompok</button>
+                                <button type="button" class="btn" id="btnKosongDraft">Kosongkan</button>
+                            </div>
+
+                            {{-- Daftar kelompok sementara disembunyikan (anggota tetap tampil di Peserta Terpilih lewat tag kelompok).
+                                 Elemen dipertahankan agar buat-rapat.js tidak error. --}}
+                            <div class="f" hidden>
+                                <div class="daftar-grup" id="daftarGrup"></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="peserta-terpilih">
                         <div class="peserta-kepala">
-                            <div class="peserta-judul" id="judulPeserta">Peserta Terpilih (0 orang)</div>
+                            {{-- Judul disembunyikan secara visual; tetap ada untuk pembaca layar dan JS --}}
+                            <div class="peserta-judul sembunyi-visual" id="judulPeserta">Peserta Terpilih (0 orang)</div>
                             <button type="button" class="btn-hapus-semua" id="btnHapusSemua" hidden>
                                 <svg class="i"><use href="#i-x"/></svg> Hapus Semua
                             </button>

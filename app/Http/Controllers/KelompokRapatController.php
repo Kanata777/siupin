@@ -1,5 +1,7 @@
 <?php
 
+// Simpan sebagai: app/Http/Controllers/KelompokRapatController.php (ganti SELURUH isi file lama)
+
 namespace App\Http\Controllers;
 
 use App\Models\KelompokRapat;
@@ -14,7 +16,7 @@ class KelompokRapatController extends Controller
     private const PER_HALAMAN = 8;
 
     // ======================================================================
-    //  HALAMAN KELOMPOK RAPAT
+    //  HALAMAN KELOMPOK RAPAT (khusus Super Admin, lihat routes/web.php)
     //  Dua halaman setara dengan tab:
     //   - /kelompok                      -> Daftar Kelompok
     //   - /kelompok?hal=anggota          -> Daftar Anggota (semua kelompok)
@@ -160,10 +162,18 @@ class KelompokRapatController extends Controller
         ])->values());
     }
 
-    /** Anggota satu kelompok (dipakai halaman Buat Rapat) */
+    /**
+     * Anggota satu kelompok (dipakai halaman Buat Rapat; terbuka untuk semua user yang login).
+     * Kelompok otomatis ("Peserta Rapat: ...") berisi peserta rapat milik orang lain,
+     * jadi hanya boleh dibuka Super Admin.
+     */
     public function anggota(int $id)
     {
         $kelompok = KelompokRapat::findOrFail($id);
+
+        if (!Rapat::bolehSemua() && str_starts_with((string) $kelompok->nama_kelompok, KelompokRapat::PREFIX_OTOMATIS)) {
+            abort(404);
+        }
 
         $anggota = KelompokRapatDetail::where('id_kelompok', $id)
             ->orderBy('nama_lengkap')
@@ -318,7 +328,7 @@ class KelompokRapatController extends Controller
     }
 
     // ======================================================================
-    //  DARI HALAMAN BUAT RAPAT: simpan peserta terpilih sebagai kelompok
+    //  SIMPAN peserta terpilih sebagai kelompok (khusus Super Admin)
     // ======================================================================
     public function simpan(Request $request)
     {

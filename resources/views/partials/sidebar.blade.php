@@ -1,3 +1,4 @@
+{{-- Simpan sebagai: resources/views/partials/sidebar.blade.php (ganti SELURUH isi file lama) --}}
 @php
     $superAdmin = auth()->user()?->isSuperAdmin() ?? false;
 
@@ -7,11 +8,12 @@
         ['Buat Rapat',      'rapat.create',    'rapat.create',  'kalender-plus', false],
         ['Jadwal Rapat',    'rapat.jadwal',    'rapat.jadwal',  'kalender',      true],
         ['Rapat Saya',      'rapat.saya',      'rapat.saya',    'berkas',        false],
-        ['Tempat Rapat',    'tempat.index',    'tempat.*',      'ruang',         false],
-        ['Kelompok Rapat',  'kelompok.index',  'kelompok.*',    'users',         false],
+        ['Daftar Hadir',    'hadir.index',     'hadir.*',       'cek',           false],
+        ['Tempat Rapat',    'tempat.index',    'tempat.*',      'ruang',         true],
+        ['Kelompok Rapat',  'kelompok.index',  'kelompok.*',    'users',         true],
         ['Notulensi Rapat', 'notulensi.index', 'notulensi.*',   'catatan',       false],
         ['Status WA',       'wa.index',        'wa.*',          'berkas',        false],
-        ['Laporan & Rekap', 'laporan.index',   'laporan.*',     'laporan',       true],
+        ['Laporan & Rekap', 'laporan.index',   'laporan.*',     'laporan',       false],
     ];
 @endphp
 

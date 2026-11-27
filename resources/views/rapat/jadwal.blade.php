@@ -5,6 +5,18 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/jadwal.css') }}?v={{ @filemtime(public_path('css/jadwal.css')) }}">
+    <style>
+        /* Tombol "Simpan Perubahan" di dialog Edit Rapat:
+           biru = hanya simpan, hijau = simpan + kirim WA (diatur oleh jadwal-rapat.js) */
+        #eSimpan.btn-hijau { background:#1f8f3d; border-color:#1f8f3d; color:#fff; }
+        #eSimpan.btn-hijau:hover { background:#1f8f3d; filter:brightness(.92); }
+
+        /* Kepala daftar peserta + tombol hapus semua */
+        .edit-peserta-kepala { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        #eHapusSemua { background:#fff; color:#c62828; border:1px solid #c62828; border-radius:6px; padding:2px 10px; cursor:pointer; font-size:.85rem; }
+        #eHapusSemua:hover { background:#fdecec; }
+        #eHapusSemua[hidden], #eHapusUnit[hidden] { display:none; }
+    </style>
 @endpush
 
 @section('page_head')
@@ -308,7 +320,10 @@
 
                 {{-- ----- Peserta ----- --}}
                 <div class="edit-peserta">
-                    <div class="edit-peserta-kepala"><b id="ePesertaJudul">Peserta (0 orang)</b></div>
+                    <div class="edit-peserta-kepala">
+                        <b id="ePesertaJudul">Peserta (0 orang)</b>
+                        <button type="button" id="eHapusSemua" hidden>Hapus semua</button>
+                    </div>
 
                     <div class="kotak-cari-e">
                         <input type="search" id="eCari" placeholder="Cari nama / NIK / unit / jabatan pegawai untuk ditambahkan..." autocomplete="off">
@@ -320,6 +335,10 @@
                         @foreach ($units as $u)
                             <option value="{{ $u }}">{{ $u }}</option>
                         @endforeach
+                    </select>
+
+                    <select id="eHapusUnit" aria-label="Hapus semua pegawai dari unit" hidden>
+                        <option value="">− Hapus semua pegawai dari unit...</option>
                     </select>
 
                     <ul id="ePeserta" class="daftar-edit-peserta"></ul>
@@ -335,6 +354,7 @@
             </div>
             <div class="dialog-kaki">
                 <button type="button" class="btn" data-tutup>Batal</button>
+                {{-- Biru = simpan saja; hijau + "& Kirim ke WA" saat ada peserta baru (diatur jadwal-rapat.js) --}}
                 <button type="submit" class="btn btn-biru" id="eSimpan">Simpan Perubahan</button>
             </div>
         </form>

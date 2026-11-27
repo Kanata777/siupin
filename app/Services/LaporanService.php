@@ -1,5 +1,7 @@
 <?php
 
+// Simpan sebagai: app/Services/LaporanService.php (ganti SELURUH isi file lama)
+
 namespace App\Services;
 
 use App\Models\KelompokRapat;
@@ -11,6 +13,12 @@ use Illuminate\Support\Facades\DB;
  * Daftar laporan SIUPIN + cara mengambil datanya dari database siupin_nh.
  * Menambah laporan baru: tambahkan di daftar() dan buat method q<Nama> (query)
  * atau a<Nama> (data hasil hitung) + petakan() bila memakai query.
+ *
+ * Hak akses:
+ *  - Super Admin : semua laporan, seluruh data.
+ *  - User biasa  : hanya laporan di UNTUK_USER, dan hanya data dari rapat yang dia buat.
+ *    Laporan data master (pegawai, kelompok, anggota, tembusan) dan absensi lama
+ *    (tidak punya pemilik) hanya untuk Super Admin.
  */
 class LaporanService
 {
@@ -32,6 +40,9 @@ class LaporanService
         'lainnya'     => 'Lainnya',
     ];
 
+    /** Laporan yang boleh dibuka User biasa (semuanya dibatasi ke rapat miliknya) */
+    private const UNTUK_USER = ['rapat', 'per_unit', 'ruang', 'batal', 'kehadiran', 'notulensi'];
+
     /** Rapat yang kelompoknya punya anggota dari unit tertentu (%s = alias tabel yang punya id_kelompok) */
     private const UNIT_ADA = "EXISTS (SELECT 1 FROM kelompok_rapat_detail d
         JOIN pegawai p ON p.nomor_wa = d.nomor_wa COLLATE utf8mb4_general_ci
@@ -42,7 +53,7 @@ class LaporanService
     // ======================================================================
     public function daftar(): array
     {
-        return [
+        $semua = [
             'rapat' => [
                 'judul' => 'Daftar Rapat', 'grup' => 'rapat', 'ikon' => 'kalender',
                 'deskripsi' => 'Seluruh rapat: jadwal, tempat, kelompok, jumlah peserta, dan status.',
@@ -110,6 +121,12 @@ class LaporanService
                 'kolom' => ['Kelompok Tembusan', 'Nama', 'Nomor WA'],
             ],
         ];
+
+        if (Rapat::bolehSemua()) {
+            return $semua;
+        }
+
+        return array_intersect_key($semua, array_flip(self::UNTUK_USER));
     }
 
     /** Baca filter dari request */
@@ -159,6 +176,8 @@ class LaporanService
     // ======================================================================
     public function total(string $jenis, array $f): int
     {
+        $this->pastikanBoleh($jenis);
+
         $q = $this->query($jenis, $f);
 
         return $q ? (int) $q->count() : count($this->agregat($jenis, $f));
@@ -167,6 +186,8 @@ class LaporanService
     /** Baris laporan (tanpa kolom "No"), satu per satu */
     public function baris(string $jenis, array $f, ?int $batas = null): \Generator
     {
+        $this->pastikanBoleh($jenis);
+
         $q = $this->query($jenis, $f);
 
         if ($q) {
@@ -184,6 +205,12 @@ class LaporanService
         foreach ($data as $baris) {
             yield $baris;
         }
+    }
+
+    /** Lapisan pengaman: jenis laporan yang tidak boleh dibuka user ini = 404 */
+    private function pastikanBoleh(string $jenis): void
+    {
+        abort_unless(isset($this->daftar()[$jenis]), 404);
     }
 
     private function query(string $jenis, array $f)
@@ -218,7 +245,8 @@ class LaporanService
     {
         $case = Rapat::ekspresiStatus(Rapat::punyaKolom('waktu_selesai'));
 
-        $q = Rapat::query()->selectRaw(
+        // terlihat(): Super Admin = semua rapat, User biasa = rapat miliknya
+        $q = Rapat::query()->terlihat()->selectRaw(
             "rapat.*, ($case) AS status_tampil,
              COALESCE(rapat.jumlah_peserta,
                 (SELECT COUNT(*) FROM kelompok_rapat_detail dd WHERE dd.id_kelompok = rapat.id_kelompok)) AS jumlah_tampil"
@@ -237,6 +265,12 @@ class LaporanService
             'b.nama_rapat', 'b.tanggal', 'b.waktu', 'b.tempat_rapat', 'b.nama_kelompok',
             'b.jumlah_peserta', 'b.status', 'b.pengundang'
         );
+
+        // Catatan tanpa rapat induk tidak punya pemilik, jadi hanya terlihat Super Admin
+        if (!Rapat::bolehSemua()) {
+            $q->whereIn('b.id_rapat', Rapat::terlihat()->select('rapat.id_rapat'));
+        }
+
         $this->rentangTanggal($q, 'b.tanggal', $f);
         if ($f['tempat_nama'] !== '') { $q->where('b.tempat_rapat', $f['tempat_nama']); }
         if ($f['unit'] !== '')        { $q->whereRaw(sprintf(self::UNIT_ADA, 'b'), [$f['unit']]); }
@@ -250,6 +284,7 @@ class LaporanService
             'a.waktu_absensi', 'a.nama_lengkap', 'a.nik_or_wa', 'a.jenis_kelamin', 'a.nama_unit',
             'a.nomor_wa', 'a.nama_rapat', 'a.tempat_rapat', 'a.signature_image_path'
         );
+        $this->batasiAbsensi($q, 'a');
         $this->rentangWaktu($q, 'a.waktu_absensi', $f);
         if ($f['unit'] !== '')        { $q->where('a.nama_unit', $f['unit']); }
         if ($f['tempat_nama'] !== '') { $q->where('a.tempat_rapat', $f['tempat_nama']); }
@@ -257,6 +292,7 @@ class LaporanService
         return $q->orderBy('a.waktu_absensi')->orderBy('a.id');
     }
 
+    /** Hanya Super Admin (tabel lama tidak punya pemilik) */
     private function qAbsensiUmum(array $f)
     {
         $q = DB::table('absensi as a')->select(
@@ -274,6 +310,11 @@ class LaporanService
             'h.nama_rapat', 'h.nama_kelompok', 'h.tanggal', 'h.waktu', 'h.tempat_rapat',
             'h.jumlah_peserta_hadir', 'h.status_rapat', 'h.notulensi_path', 'h.dokumentasi1_path', 'h.dokumentasi2_path'
         );
+
+        if (!Rapat::bolehSemua()) {
+            $q->whereIn('h.id_rapat', Rapat::terlihat()->select('rapat.id_rapat'));
+        }
+
         $this->rentangTanggal($q, 'h.tanggal', $f);
         if ($f['tempat_nama'] !== '') { $q->where('h.tempat_rapat', $f['tempat_nama']); }
         if ($f['unit'] !== '')        { $q->whereRaw(sprintf(self::UNIT_ADA, 'h'), [$f['unit']]); }
@@ -281,6 +322,7 @@ class LaporanService
         return $q->orderBy('h.tanggal')->orderBy('h.waktu');
     }
 
+    /** Hanya Super Admin */
     private function qAnggota(array $f)
     {
         $unit = "(SELECT p.nama_unit FROM pegawai p WHERE p.nomor_wa = d.nomor_wa COLLATE utf8mb4_general_ci LIMIT 1)";
@@ -296,6 +338,7 @@ class LaporanService
         return $q->orderBy('k.nama_kelompok')->orderBy('d.nama_lengkap');
     }
 
+    /** Hanya Super Admin */
     private function qPegawai(array $f)
     {
         $q = DB::table('pegawai')->select('nik', 'nama_lengkap', 'jenis_kelamin', 'jabatan', 'nama_unit', 'nomor_wa');
@@ -304,6 +347,7 @@ class LaporanService
         return $q->orderBy('nama_unit')->orderBy('nama_lengkap');
     }
 
+    /** Hanya Super Admin */
     private function qTembusan()
     {
         return DB::table('tembusan_detail as d')
@@ -365,9 +409,9 @@ class LaporanService
     // ======================================================================
     private function aPerUnit(array $f): array
     {
-        $rapat = Rapat::query()->select('id_rapat', 'id_kelompok', 'status');
-        $this->rentangTanggal($rapat, 'tanggal', $f);
-        if ($f['tempat']) { $rapat->where('id_tempat', $f['tempat']); }
+        $rapat = Rapat::query()->terlihat()->select('rapat.id_rapat', 'rapat.id_kelompok', 'rapat.status');
+        $this->rentangTanggal($rapat, 'rapat.tanggal', $f);
+        if ($f['tempat']) { $rapat->where('rapat.id_tempat', $f['tempat']); }
         $rapat = $rapat->get();
 
         // anggota tiap kelompok dikelompokkan per unit (dicocokkan lewat nomor WA)
@@ -401,6 +445,7 @@ class LaporanService
         $h = DB::table('tabel_absensi')
             ->selectRaw("COALESCE(NULLIF(TRIM(nama_unit), ''), 'Tanpa Unit') AS unit, COUNT(*) AS n")
             ->groupBy('unit');
+        $this->batasiAbsensi($h, 'tabel_absensi');
         $this->rentangWaktu($h, 'waktu_absensi', $f);
         if ($f['tempat_nama'] !== '') { $h->where('tempat_rapat', $f['tempat_nama']); }
         $hadir = $h->pluck('n', 'unit')->all();
@@ -418,11 +463,22 @@ class LaporanService
 
     private function aRuang(array $f): array
     {
-        $ikat  = [];
-        $join  = '';
-        $where = '';
+        $ikat   = [];
+        $join   = '';
+        $where  = '';
+        $having = '';
+
         if ($f['dari'])   { $join .= ' AND r.tanggal >= ?'; $ikat[] = $f['dari']; }
         if ($f['sampai']) { $join .= ' AND r.tanggal <= ?'; $ikat[] = $f['sampai']; }
+
+        // User biasa: hanya rapat miliknya, dan hanya ruang yang pernah dia pakai
+        if (!Rapat::bolehSemua()) {
+            $join  .= ' AND r.user_id = ?';
+            $ikat[] = (int) auth()->id();
+            $having = 'HAVING COUNT(r.id_rapat) > 0';
+        }
+
+        // urutan binding harus sama dengan urutan tanda tanya di SQL: JOIN dulu, lalu WHERE
         if ($f['tempat']) { $where = ' WHERE t.id_tempat = ?'; $ikat[] = $f['tempat']; }
 
         $baris = DB::select("
@@ -438,6 +494,7 @@ class LaporanService
               LEFT JOIN rapat r ON r.id_tempat = t.id_tempat $join
               $where
              GROUP BY t.id_tempat, t.nama_tempat, t.gedung
+             $having
              ORDER BY total DESC, t.nama_tempat
         ", $ikat);
 
@@ -448,6 +505,7 @@ class LaporanService
         }, $baris);
     }
 
+    /** Hanya Super Admin */
     private function aKelompok(): array
     {
         return array_map(
@@ -459,6 +517,27 @@ class LaporanService
     // ======================================================================
     //  BANTUAN
     // ======================================================================
+
+    /**
+     * Absensi tidak punya id_rapat, jadi untuk User biasa hanya absensi yang cocok
+     * (nama rapat + tanggal) dengan rapat miliknya yang dihitung. Sama dengan Dashboard.
+     * $t = nama atau alias tabel absensi pada query.
+     */
+    private function batasiAbsensi($q, string $t): void
+    {
+        if (Rapat::bolehSemua()) {
+            return;
+        }
+
+        $q->whereRaw(
+            "EXISTS (SELECT 1 FROM rapat r
+                      WHERE r.user_id = ?
+                        AND TRIM(r.nama_rapat) = TRIM($t.nama_rapat)
+                        AND r.tanggal = DATE($t.waktu_absensi))",
+            [(int) auth()->id()]
+        );
+    }
+
     private function rentangTanggal($q, string $kolom, array $f): void
     {
         if ($f['dari'])   { $q->where($kolom, '>=', $f['dari']); }

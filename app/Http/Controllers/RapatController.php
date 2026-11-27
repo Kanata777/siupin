@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Jobs\KirimUndanganWa;
@@ -16,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
 class RapatController extends Controller
 {
     /** Jam operasional rapat (harus sama dengan $jamBuka / $jamTutup di view rapat/create) */
-    private const JAM_BUKA = '07:00';
+    private const JAM_BUKA  = '07:00';
     private const JAM_TUTUP = '15:00';
 
     /** Batas pagi/siang untuk penentuan sesi otomatis (sama dengan $batasSiang di view) */
@@ -47,9 +46,9 @@ class RapatController extends Controller
 
         // Status pengiriman WA hanya ditampilkan untuk rapat yang baru dikirim (?rapat=ID)
         // dan hanya bila rapat tersebut memang punya data undangan.
-        $pk = (new Rapat)->getKeyName();
+        $pk        = (new Rapat)->getKeyName();
         $rapatBaru = null;
-        $idRapat = (int) request('rapat');
+        $idRapat   = (int) request('rapat');
         if ($idRapat > 0 && RapatUndangan::where('id_rapat', $idRapat)->exists()) {
             // Hanya rapat milik user login (Super Admin: semua); selain itu dianggap tidak ada
             $rapatBaru = Rapat::terlihat()->where($pk, $idRapat)->first([$pk, 'nama_rapat', 'tanggal', 'waktu']);
@@ -57,15 +56,15 @@ class RapatController extends Controller
         $rapatAktif = $rapatBaru ? $rapatBaru->getKey() : null;
 
         $konfig = [
-            'urlPegawai' => route('rapat.pegawai'),
-            'urlCek' => route('rapat.cek-tempat'),
-            'urlAnggota' => route('kelompok.anggota', '__ID__'),
-            'urlSimpan' => route('kelompok.simpan'),
-            'urlStatus' => route('rapat.status-wa', '__ID__'),
-            'urlUlang' => route('rapat.kirim-ulang', '__ID__'),
-            'tersimpan' => collect($kelompok)->map(fn($g) => [
-                'id' => $g['id'],
-                'nama' => $g['nama'],
+            'urlPegawai'  => route('rapat.pegawai'),
+            'urlCek'      => route('rapat.cek-tempat'),
+            'urlAnggota'  => route('kelompok.anggota', '__ID__'),
+            'urlSimpan'   => route('kelompok.simpan'),
+            'urlStatus'   => route('rapat.status-wa', '__ID__'),
+            'urlUlang'    => route('rapat.kirim-ulang', '__ID__'),
+            'tersimpan'   => collect($kelompok)->map(fn($g) => [
+                'id'     => $g['id'],
+                'nama'   => $g['nama'],
                 'jumlah' => $g['jumlah'],
             ])->all(),
             'pesertaLama' => json_decode(old('peserta_json', '[]'), true) ?: [],
@@ -73,8 +72,8 @@ class RapatController extends Controller
         ];
 
         $punya = [
-            'selesai' => $this->punyaKolom('waktu_selesai'),
-            'metode' => $this->punyaKolom('metode'),
+            'selesai'  => $this->punyaKolom('waktu_selesai'),
+            'metode'   => $this->punyaKolom('metode'),
             'lampiran' => $this->punyaKolom('lampiran_path'),
         ];
 
@@ -100,14 +99,14 @@ class RapatController extends Controller
         $luar = $request->input('id_tempat') === self::TEMPAT_LUAR;
 
         // Tempat luar kantor menyimpan id_tempat = NULL, jadi kolomnya harus boleh NULL.
-        if ($luar && !$this->idTempatBolehNull()) {
+        if ($luar && ! $this->idTempatBolehNull()) {
             return back()->withInput()->withErrors([
                 'id_tempat' => 'Database belum siap untuk tempat di luar kantor. Jalankan: '
-                    . 'ALTER TABLE rapat MODIFY id_tempat INT NULL DEFAULT NULL;',
+                . 'ALTER TABLE rapat MODIFY id_tempat INT NULL DEFAULT NULL;',
             ]);
         }
 
-        $buka = self::JAM_BUKA;
+        $buka  = self::JAM_BUKA;
         $tutup = self::JAM_TUTUP;
 
         // Jam mulai: 07:00 s/d sebelum 15:00. Jam selesai: setelah jam mulai, paling lambat 15:00.
@@ -117,27 +116,27 @@ class RapatController extends Controller
             : 'nullable';
 
         $data = $request->validate([
-            'nama_rapat' => 'required|string|max:100',
+            'nama_rapat'    => 'required|string|max:100',
             'catatan_rapat' => 'nullable|string|max:255',
-            'tanggal' => 'required|date',
-            'waktu' => "required|date_format:H:i|after_or_equal:{$buka}|before:{$tutup}",
-            'waktu_selesai' => $aturanSelesai,
-            'id_tempat' => $luar ? 'required|in:' . self::TEMPAT_LUAR : 'required|exists:tempat_rapat,id_tempat',
-            'tempat_luar_nama' => $luar ? 'required|string|max:60' : 'nullable',
-            'tempat_luar_ket' => 'nullable|string|max:100',
-            'metode' => 'nullable|in:tatap_muka,daring',
-            'link_rapat' => 'nullable|url|max:2000',
-            'lampiran' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
-            'peserta' => 'required|array|min:1|max:3000',
+            'tanggal'       => 'required|date',
+            'waktu'         => "required|date_format:H:i|after_or_equal:{$buka}|before:{$tutup}",
+            'waktu_selesai'      => $aturanSelesai,
+            'id_tempat'          => $luar ? 'required|in:' . self::TEMPAT_LUAR : 'required|exists:tempat_rapat,id_tempat',
+            'tempat_luar_nama'   => $luar ? 'required|string|max:60' : 'nullable',
+            'tempat_luar_ket'    => 'nullable|string|max:100',
+            'metode'             => 'nullable|in:tatap_muka,daring',
+            'link_rapat'         => 'nullable|url|max:2000',
+            'lampiran'           => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'peserta'            => 'required|array|min:1|max:3000',
             'peserta.*.nomor_wa' => 'required|string|max:20',
-            'peserta.*.nama' => 'required|string|max:100',
-            'aksi' => 'required|in:draft,kirim',
+            'peserta.*.nama'     => 'required|string|max:100',
+            'aksi'               => 'required|in:draft,kirim',
         ], [
-            'required' => ':attribute wajib diisi.',
-            'exists' => ':attribute tidak ditemukan.',
-            'date' => ':attribute tidak valid.',
-            'date_format' => ':attribute tidak valid.',
-            'after' => 'Jam selesai harus setelah jam mulai.',
+            'required'             => ':attribute wajib diisi.',
+            'exists'               => ':attribute tidak ditemukan.',
+            'date'                 => ':attribute tidak valid.',
+            'date_format'          => ':attribute tidak valid.',
+            'after'                => 'Jam selesai harus setelah jam mulai.',
             'waktu.after_or_equal' => "Waktu mulai paling awal pukul {$buka}.",
             'waktu.before' => "Waktu mulai harus sebelum pukul {$tutup}.",
             'waktu_selesai.before_or_equal' => "Waktu selesai paling lambat pukul {$tutup}.",
@@ -147,34 +146,34 @@ class RapatController extends Controller
             'peserta.required' => 'Pilih minimal satu peserta.',
             'peserta.min' => 'Pilih minimal satu peserta.',
         ], [
-            'nama_rapat' => 'Nama rapat',
-            'catatan_rapat' => 'Agenda / topik',
-            'tanggal' => 'Tanggal',
-            'waktu' => 'Waktu mulai',
-            'waktu_selesai' => 'Waktu selesai',
-            'id_tempat' => 'Tempat rapat',
+            'nama_rapat'       => 'Nama rapat',
+            'catatan_rapat'    => 'Agenda / topik',
+            'tanggal'          => 'Tanggal',
+            'waktu'            => 'Waktu mulai',
+            'waktu_selesai'    => 'Waktu selesai',
+            'id_tempat'        => 'Tempat rapat',
             'tempat_luar_nama' => 'Nama tempat di luar kantor',
-            'tempat_luar_ket' => 'Keterangan lokasi',
-            'lampiran' => 'Lampiran',
+            'tempat_luar_ket'  => 'Keterangan lokasi',
+            'lampiran'         => 'Lampiran',
         ]);
 
         $selesai = $this->punyaKolom('waktu_selesai') ? ($data['waktu_selesai'] ?? null) : null;
-        $sesi = $this->tentukanSesi($data['waktu'], $selesai);
+        $sesi    = $this->tentukanSesi($data['waktu'], $selesai);
 
         if ($luar) {
             // Hanya untuk rapat ini: nama + keterangan digabung ke kolom tempat_rapat, id_tempat dikosongkan
-            $idTempat = null;
+            $idTempat   = null;
             $namaTempat = $this->susunTempatLuar($data['tempat_luar_nama'], $data['tempat_luar_ket'] ?? '');
         } else {
-            $tempat = TempatRapat::findOrFail($data['id_tempat']);
-            $idTempat = $tempat->id_tempat;
+            $tempat     = TempatRapat::findOrFail($data['id_tempat']);
+            $idTempat   = $tempat->id_tempat;
             $namaTempat = $tempat->nama_tempat;
 
             if ($this->bentrok($idTempat, $data['tanggal'], $data['waktu'], $selesai)) {
                 return back()->withInput()->withErrors([
                     'id_tempat' => 'Tempat sudah dipakai rapat lain pada jadwal tersebut atau kurang dari '
-                        . Rapat::JEDA_MENIT . ' menit dari rapat lain. Beri jeda minimal '
-                        . Rapat::JEDA_MENIT . ' menit.',
+                    . Rapat::JEDA_MENIT . ' menit dari rapat lain. Beri jeda minimal '
+                    . Rapat::JEDA_MENIT . ' menit.',
                 ]);
             }
         }
@@ -186,28 +185,27 @@ class RapatController extends Controller
             ->values();
 
         $daring = ($data['metode'] ?? 'tatap_muka') === 'daring';
-        $aksi = $data['aksi'];
+        $aksi   = $data['aksi'];
 
         $rapat = DB::transaction(function () use ($data, $idTempat, $namaTempat, $peserta, $selesai, $daring, $aksi, $request) {
             // Pakai kelompok tersimpan bila anggotanya persis sama, kalau tidak buat kelompok otomatis
-            $kelompok = $this->cariKelompokSama($peserta->pluck('nomor_wa')->all())
-                ?? $this->buatKelompokOtomatis($data['nama_rapat'], $data['tanggal'], $peserta);
+            $kelompok = $this->cariKelompokSama($peserta->pluck('nomor_wa')->all()) ?? $this->buatKelompokOtomatis($data['nama_rapat'], $data['tanggal'], $peserta);
 
             $baris = [
-                'nama_rapat' => $data['nama_rapat'],
-                'tanggal' => $data['tanggal'],
-                'waktu' => $data['waktu'] . ':00',
-                'tempat_rapat' => $namaTempat,
-                'id_tempat' => $idTempat,
-                'status' => $aksi === 'kirim' ? Rapat::STATUS_TERJADWAL : Rapat::STATUS_DRAFT,
-                'jumlah_peserta' => $peserta->count(),
-                'catatan_rapat' => $data['catatan_rapat'] ?? '',
+                'nama_rapat'          => $data['nama_rapat'],
+                'tanggal'             => $data['tanggal'],
+                'waktu'               => $data['waktu'] . ':00',
+                'tempat_rapat'        => $namaTempat,
+                'id_tempat'           => $idTempat,
+                'status'              => $aksi === 'kirim' ? Rapat::STATUS_TERJADWAL : Rapat::STATUS_DRAFT,
+                'jumlah_peserta'      => $peserta->count(),
+                'catatan_rapat'       => $data['catatan_rapat'] ?? '',
                 // Penyelenggara & pemilik selalu dari user yang login, tidak pernah dari input form
-                'pengundang' => auth()->user()->name,
-                'user_id' => auth()->id(),
+                'pengundang'          => auth()->user()->name,
+                'user_id'             => auth()->id(),
                 'link_undangan_rapat' => $daring ? ($data['link_rapat'] ?? '') : '',
-                'id_kelompok' => $kelompok->id_kelompok,
-                'nama_kelompok' => $kelompok->nama_kelompok,
+                'id_kelompok'         => $kelompok->id_kelompok,
+                'nama_kelompok'       => $kelompok->nama_kelompok,
             ];
 
             // Kolom opsional (lihat database/tambah_kolom_rapat.sql)
@@ -227,10 +225,10 @@ class RapatController extends Controller
             if ($aksi === 'kirim') {
                 $now = now();
                 $peserta->map(fn($p) => [
-                    'id_rapat' => $rapat->getKey(),
-                    'nomor_wa' => $p['nomor_wa'],
-                    'nama' => $p['nama'],
-                    'status' => RapatUndangan::PENDING,
+                    'id_rapat'   => $rapat->getKey(),
+                    'nomor_wa'   => $p['nomor_wa'],
+                    'nama'       => $p['nama'],
+                    'status'     => RapatUndangan::PENDING,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ])->chunk(500)->each(fn($c) => RapatUndangan::insert($c->all()));
@@ -263,10 +261,10 @@ class RapatController extends Controller
             ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
 
         $ringkasan = [
-            'pending' => (int) ($hitung[RapatUndangan::PENDING] ?? 0),
+            'pending'  => (int) ($hitung[RapatUndangan::PENDING] ?? 0),
             'terkirim' => (int) ($hitung[RapatUndangan::TERKIRIM] ?? 0),
-            'gagal' => (int) ($hitung[RapatUndangan::GAGAL] ?? 0),
-            'total' => (int) $hitung->sum(),
+            'gagal'    => (int) ($hitung[RapatUndangan::GAGAL] ?? 0),
+            'total'    => (int) $hitung->sum(),
         ];
 
         $filter = $request->query('status');
@@ -280,7 +278,7 @@ class RapatController extends Controller
 
         return response()->json([
             'ringkasan' => $ringkasan,
-            'html' => view('rapat.partials.status-wa-baris', ['daftar' => $daftar])->render(),
+            'html'      => view('rapat.partials.status-wa-baris', ['daftar' => $daftar])->render(),
         ]);
     }
 
@@ -357,12 +355,12 @@ class RapatController extends Controller
         $wk = (string) $request->query('waktu');
         $sl = (string) $request->query('waktu_selesai');
 
-        if (!$id || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $tg) || !preg_match('/^\d{2}:\d{2}$/', $wk)) {
+        if (! $id || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $tg) || ! preg_match('/^\d{2}:\d{2}$/', $wk)) {
             return response()->json(['tersedia' => null]);
         }
         $sl = preg_match('/^\d{2}:\d{2}$/', $sl) && $sl > $wk ? $sl : null;
 
-        return response()->json(['tersedia' => !$this->bentrok($id, $tg, $wk, $sl)]);
+        return response()->json(['tersedia' => ! $this->bentrok($id, $tg, $wk, $sl)]);
     }
 
     /** Status SEMUA tempat untuk tanggal + jam tertentu (tersedia / tidak tersedia) */
@@ -372,14 +370,14 @@ class RapatController extends Controller
         $wk = (string) $request->query('waktu');
         $sl = (string) $request->query('waktu_selesai');
 
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tg) || !preg_match('/^\d{2}:\d{2}$/', $wk)) {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $tg) || ! preg_match('/^\d{2}:\d{2}$/', $wk)) {
             return response()->json(['tempat' => (object) []]);
         }
         $sl = preg_match('/^\d{2}:\d{2}$/', $sl) && $sl > $wk ? $sl : null;
 
         // Pengecekan bentrok tetap melihat rapat semua user, tetapi nama rapat milik user lain
         // tidak ditampilkan ke User biasa (hanya jam yang terpakai).
-        $semua  = Rapat::bolehSemua();
+        $semua   = Rapat::bolehSemua();
         $milikku = (int) auth()->id();
 
         $hasil = [];
@@ -406,15 +404,22 @@ class RapatController extends Controller
         $query = Pegawai::query()->whereNotNull('nomor_wa')->where('nomor_wa', '!=', '');
 
         if ($kata = trim((string) $request->query('q'))) {
-            $like = '%' . $kata . '%';
-            $query->where(function ($w) use ($like) {
-                $w->where('nama_lengkap', 'like', $like)
-                    ->orWhere('nik', 'like', $like)
-                    ->orWhere('nama_unit', 'like', $like)
-                    ->orWhere('jabatan', 'like', $like)
-                    ->orWhere('panggilan_dan_nama', 'like', $like);
-            });
-            $batas = 20;
+            // Tiap kata harus cocok di salah satu kolom (nama, NIK, unit, jabatan, panggilan),
+            // sehingga "budi keuangan" menemukan Budi di unit Keuangan.
+            // Karakter % dan _ di-escape supaya tidak menjadi wildcard.
+            $kataKata = array_slice(array_values(array_filter(preg_split('/\s+/', $kata))), 0, 5);
+
+            foreach ($kataKata as $k) {
+                $like = '%' . addcslashes($k, '%_\\') . '%';
+                $query->where(function ($w) use ($like) {
+                    $w->where('nama_lengkap', 'like', $like)
+                        ->orWhere('nik', 'like', $like)
+                        ->orWhere('nama_unit', 'like', $like)
+                        ->orWhere('jabatan', 'like', $like)
+                        ->orWhere('panggilan_dan_nama', 'like', $like);
+                });
+            }
+            $batas = 30;
         } elseif ($request->filled('unit')) {
             $query->where('nama_unit', $request->query('unit'));
             $batas = 3000;
@@ -430,9 +435,9 @@ class RapatController extends Controller
                 ->get(['nomor_wa', 'nama_lengkap', 'nama_unit', 'jabatan'])
                 ->map(fn($p) => [
                     'nomor_wa' => trim($p->nomor_wa),
-                    'nama' => $p->nama_lengkap,
-                    'unit' => $p->nama_unit,
-                    'jabatan' => $p->jabatan,
+                    'nama'     => $p->nama_lengkap,
+                    'unit'     => $p->nama_unit,
+                    'jabatan'  => $p->jabatan,
                 ])->values()
         );
     }
@@ -449,12 +454,31 @@ class RapatController extends Controller
     }
 
     /** Masukkan job kirim WA ke antrean dengan jeda antar pesan (config/wa.php) */
-    private function antrekan($ids): void
+    /** Masukkan job kirim WA ke antrean: jeda acak per pesan + istirahat tiap batch (config/wa.php) */
+    private function antrekan($ids, ?string $profil = null): void
     {
-        $jeda = max(0, (int) config('wa.jeda', 3));
+        $semua  = (array) config('wa.profil', []);
+        $profil = $profil ?? (string) request()->input('jeda');
+        if (! isset($semua[$profil])) {
+            $profil = (string) config('wa.profil_bawaan', 'normal');
+        }
 
+        [$a, $b] = $semua[$profil] ?? [3, 3];
+        $min     = max(0, min($a, $b));
+        $max     = max($a, $b);
+
+        $perBatch  = max(0, (int) config('wa.per_batch', 0));
+        $jedaBatch = max(0, (int) config('wa.jeda_batch', 0));
+
+        $tunda = 0; // pesan pertama langsung jalan
         foreach ($ids->values() as $i => $idUndangan) {
-            KirimUndanganWa::dispatch((int) $idUndangan)->delay(now()->addSeconds($i * $jeda));
+            if ($i > 0) {
+                $tunda += random_int($min, $max);
+                if ($perBatch > 0 && $i % $perBatch === 0) {
+                    $tunda += $jedaBatch;
+                }
+            }
+            KirimUndanganWa::dispatch((int) $idUndangan)->delay(now()->addSeconds($tunda));
         }
     }
 
@@ -464,7 +488,7 @@ class RapatController extends Controller
      */
     private function susunTempatLuar(string $nama, string $keterangan): string
     {
-        $teks = trim($nama) . ' (di luar kantor)';
+        $teks       = trim($nama) . ' (di luar kantor)';
         $keterangan = trim($keterangan);
         if ($keterangan !== '') {
             $teks .= ' - ' . $keterangan;
@@ -529,15 +553,15 @@ class RapatController extends Controller
             ->whereRaw('LOWER(status) NOT LIKE ?', ['%tunda%']);
 
         $punyaSelesai = $this->punyaKolom('waktu_selesai');
-        $mulai = $waktu . ':00';
-        $akhir = ($selesai && $punyaSelesai) ? $selesai . ':00' : $mulai;
+        $mulai        = $waktu . ':00';
+        $akhir        = ($selesai && $punyaSelesai) ? $selesai . ':00' : $mulai;
 
         $selesaiLama = $punyaSelesai ? 'COALESCE(waktu_selesai, waktu)' : 'waktu';
-        $jeda = sprintf('%02d:%02d:00', intdiv(Rapat::JEDA_MENIT, 60), Rapat::JEDA_MENIT % 60);
+        $jeda        = sprintf('%02d:%02d:00', intdiv(Rapat::JEDA_MENIT, 60), Rapat::JEDA_MENIT % 60);
 
         // bentrok bila: mulai_baru <= selesai_lama + jeda  DAN  selesai_baru + jeda >= mulai_lama
         $q->whereRaw("TIME(?) < ADDTIME($selesaiLama, '$jeda')", [$mulai])
-          ->whereRaw("ADDTIME(TIME(?), '$jeda') > waktu", [$akhir]);
+            ->whereRaw("ADDTIME(TIME(?), '$jeda') > waktu", [$akhir]);
 
         return $q;
     }

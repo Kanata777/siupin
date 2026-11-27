@@ -1,5 +1,7 @@
 <?php
 
+// Simpan sebagai: app/Http/Controllers/LaporanController.php (ganti SELURUH isi file lama)
+
 namespace App\Http\Controllers;
 
 use App\Services\LaporanService;
@@ -24,10 +26,13 @@ class LaporanController extends Controller
         Carbon::setLocale('id');
 
         $f      = $svc->filter($request);
-        $daftar = $svc->daftar();
+        $daftar = $svc->daftar();   // sudah disaring sesuai hak akses (User biasa: laporan rapat miliknya saja)
         foreach ($daftar as $kunci => $d) {
             $daftar[$kunci]['total'] = $svc->total($kunci, $f);
         }
+
+        // Hanya tampilkan grup yang punya laporan (User biasa tidak melihat grup "Data Master")
+        $grup = array_intersect_key(LaporanService::GRUP, array_flip(array_column($daftar, 'grup')));
 
         $terpilih = array_values(array_intersect(array_keys($daftar), (array) $request->query('jenis', [])));
         $lihat    = (string) $request->query('lihat');
@@ -64,7 +69,7 @@ class LaporanController extends Controller
         ];
 
         return view('laporan.index', [
-            'f' => $f, 'daftar' => $daftar, 'grup' => LaporanService::GRUP, 'statusList' => LaporanService::STATUS_LABEL,
+            'f' => $f, 'daftar' => $daftar, 'grup' => $grup, 'statusList' => LaporanService::STATUS_LABEL,
             'terpilih' => $terpilih, 'units' => $units, 'tempatList' => $tempatList,
             'preset' => $preset, 'teksRentang' => $teksRentang, 'konfig' => $konfig, 'lihat' => $lihat,
         ]);
@@ -193,7 +198,7 @@ class LaporanController extends Controller
     //  BANTUAN
     // ======================================================================
 
-    /** Kunci laporan yang dipilih, sesuai urutan daftar */
+    /** Kunci laporan yang dipilih, sesuai urutan daftar (jenis yang tidak boleh diakses otomatis terbuang) */
     private function jenisDipilih(Request $request, array $daftar): array
     {
         return array_values(array_intersect(array_keys($daftar), (array) $request->query('jenis', [])));

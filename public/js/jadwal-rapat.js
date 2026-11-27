@@ -1,5 +1,15 @@
 /* Halaman Jadwal Rapat — SIUPIN
-   Simpan sebagai: public/js/jadwal-rapat.js (ganti seluruh isi file lama) */
+   Simpan sebagai: public/js/jadwal-rapat.js (ganti seluruh isi file lama)
+
+   Dialog Edit Rapat:
+   - tombol simpan biru  : tidak ada peserta baru (tidak ada undangan WA baru)
+   - tombol simpan hijau : ada peserta baru yang akan menerima undangan WA
+   - rapat draft         : selalu biru (draft tidak pernah mengirim WA)
+   - tambah dari unit A lalu unit B: peserta DITAMBAH, tidak ditimpa
+   - daftar peserta dikelompokkan per unit; kelompok/peserta BARU tampil paling atas
+   - "Hapus semua", "Hapus unit" di tiap kelompok, dan dropdown "Hapus semua pegawai dari unit..."
+   - bila >= 2 unit ditambahkan lewat dropdown unit, server membuat kelompok tersendiri tiap unit
+*/
 (function () {
   'use strict';
 
@@ -16,6 +26,18 @@
     if (isi != null) e.textContent = isi;
     return e;
   }
+
+  /* CSS tambahan untuk judul kelompok unit (tidak perlu mengubah file CSS/blade) */
+  (function () {
+    var st = document.createElement('style');
+    st.textContent =
+      '.daftar-edit-peserta .judul-unit{display:flex;justify-content:space-between;align-items:center;gap:8px;' +
+      'background:#eef2f7;font-weight:600;font-size:.82rem;padding:6px 10px;position:sticky;top:0;z-index:1;list-style:none}' +
+      '.daftar-edit-peserta .judul-unit .hapus-unit{background:#fff;color:#c62828;border:1px solid #c62828;' +
+      'border-radius:6px;padding:1px 8px;font-size:.75rem;cursor:pointer}' +
+      '.daftar-edit-peserta .judul-unit .hapus-unit:hover{background:#fdecec}';
+    document.head.appendChild(st);
+  })();
 
   /* ---------- Filter ---------- */
   var form = $('#formFilter');
@@ -94,7 +116,7 @@
         var li = document.createElement('li');
         li.appendChild(document.createTextNode(a.nama + ' '));
         var s = document.createElement('small');
-        s.textContent = '— ' + a.nomor_wa;
+        s.textContent = '— ' + a.nomor_wa + (a.unit ? ' · ' + a.unit : '');
         li.appendChild(s);
         ol.appendChild(li);
       });
@@ -107,14 +129,22 @@
   var elGalat = $('#eGalat');
   var elDaftar = $('#ePeserta'), elJudul = $('#ePesertaJudul');
   var elCari = $('#eCari'), elHasil = $('#eHasil'), elUnit = $('#eUnit');
+  var elHapusSemua = $('#eHapusSemua'), elHapusUnit = $('#eHapusUnit');
   var elKirimBaris = $('#eKirimBaris'), elKirim = $('#eKirimUlang'), elInfo = $('#eInfoKirim');
+  var elSimpan = $('#eSimpan');
 
-  var peserta = new Map();   // nomor_wa -> { nomor_wa, nama }
-  var awal = new Set();      // nomor_wa peserta sebelum diedit
-  var awalJadwal = null;     // jadwal sebelum diedit
+  var peserta = new Map();      // nomor_wa -> { nomor_wa, nama, unit }
+  var awal = new Set();         // nomor_wa peserta sebelum diedit
+  var unitAnggota = new Map();  // unit -> [nomor_wa] yang ditambahkan lewat dropdown unit (sesi edit ini)
+  var awalJadwal = null;        // jadwal sebelum diedit
   var statusDraft = false;
   var hasilTerakhir = [];
   var timerCari;
+
+  var TANPA_UNIT = '__tanpa_unit__';
+  var LABEL_SIMPAN = 'Simpan Perubahan';
+  var LABEL_SIMPAN_WA = 'Simpan Perubahan & Kirim ke WA';
+  var LABEL_TAMBAH_UNIT = elUnit.options[0] ? elUnit.options[0].textContent : '+ Tambah semua pegawai dari unit...';
 
   function tampilGalat(pesan) {
     elGalat.textContent = pesan;
@@ -131,7 +161,15 @@
       || String($('#eTempat').value) !== String(awalJadwal.id_tempat || '');
   }
 
-  function segarkanInfo() {
+  /** Tombol simpan: hijau + "& Kirim ke WA" bila ada peserta baru yang akan dikirimi undangan */
+  function aturTombolSimpan(kirimWa) {
+    elSimpan.classList.toggle('btn-hijau', kirimWa);
+    elSimpan.classList.toggle('btn-biru', !kirimWa);
+    elSimpan.textContent = kirimWa ? LABEL_SIMPAN_WA : LABEL_SIMPAN;
+    elSimpan.title = kirimWa ? 'Undangan WhatsApp akan dikirim ke peserta baru' : '';
+  }
+
+  function segarkanInfo(catatan) {
     var ditambah = 0, dihapus = 0;
     peserta.forEach(function (p, wa) { if (!awal.has(wa)) ditambah++; });
     awal.forEach(function (wa) { if (!peserta.has(wa)) dihapus++; });
@@ -139,7 +177,10 @@
     var berubah = jadwalBerubah();
     elKirimBaris.hidden = statusDraft || !berubah;
 
+    aturTombolSimpan(!statusDraft && ditambah > 0);
+
     var t = [];
+    if (typeof catatan === 'string' && catatan) t.push(catatan);
     if (statusDraft) {
       t.push('Rapat masih berstatus draft, tidak ada pesan WhatsApp yang dikirim.');
     } else {
@@ -152,7 +193,43 @@
     elInfo.textContent = t.join(' ');
   }
 
-  function renderPeserta() {
+  /** Isi ulang dropdown "Hapus dari unit" sesuai peserta saat ini; juga tampil/sembunyikan "Hapus semua" */
+  function segarkanHapusUnit() {
+    var hitung = new Map();
+    peserta.forEach(function (p) {
+      var u = p.unit || '';
+      hitung.set(u, (hitung.get(u) || 0) + 1);
+    });
+
+    elHapusUnit.textContent = '';
+    elHapusUnit.appendChild(new Option('− Hapus semua pegawai dari unit...', ''));
+    hitung.forEach(function (n, u) {
+      elHapusUnit.appendChild(new Option((u || '(Tanpa unit)') + ' (' + n + ')', u === '' ? TANPA_UNIT : u));
+    });
+    elHapusUnit.value = '';
+    elHapusUnit.hidden = hitung.size === 0;
+    elHapusSemua.hidden = peserta.size === 0;
+  }
+
+  /** Hapus semua peserta milik satu unit ('' = tanpa unit), dengan konfirmasi */
+  function hapusDariUnit(unit) {
+    var hapus = [];
+    peserta.forEach(function (p, wa) { if ((p.unit || '') === unit) hapus.push(wa); });
+
+    if (hapus.length && confirm('Hapus ' + hapus.length + ' peserta dari unit "' + (unit || 'tanpa unit') + '"?')) {
+      hapus.forEach(function (wa) { peserta.delete(wa); });
+      unitAnggota.delete(unit);
+    }
+    renderPeserta();
+  }
+
+  /**
+   * Gambar daftar peserta, dikelompokkan per unit.
+   * Kelompok yang berisi peserta baru tampil paling atas, dan peserta baru di atas peserta lama
+   * dalam kelompoknya, supaya hasil klik langsung terlihat tanpa menggulir.
+   * $gulirAtas = true -> daftar digulir ke atas.
+   */
+  function renderPeserta(gulirAtas, catatan) {
     elJudul.textContent = 'Peserta (' + peserta.size + ' orang)';
     elDaftar.textContent = '';
 
@@ -160,35 +237,84 @@
       elDaftar.appendChild(buat('li', 'kosong-kecil', 'Belum ada peserta. Tambahkan lewat kolom pencarian di atas.'));
     }
 
+    var grup = new Map();
     peserta.forEach(function (p) {
-      var li = buat('li');
-      var info = buat('span', 'nama-peserta', p.nama + ' ');
-      info.appendChild(buat('small', null, '— ' + p.nomor_wa));
-      li.appendChild(info);
-
-      if (!awal.has(p.nomor_wa)) li.appendChild(buat('span', 'lencana-baru', 'Baru'));
-
-      var x = buat('button', 'hapus-peserta', '✕');
-      x.type = 'button';
-      x.title = 'Hapus ' + p.nama;
-      x.setAttribute('aria-label', 'Hapus ' + p.nama);
-      x.addEventListener('click', function () {
-        peserta.delete(p.nomor_wa);
-        renderPeserta();
-      });
-      li.appendChild(x);
-      elDaftar.appendChild(li);
+      var u = p.unit || '';
+      if (!grup.has(u)) grup.set(u, []);
+      grup.get(u).push(p);
     });
 
-    segarkanInfo();
+    var baru = function (p) { return awal.has(p.nomor_wa) ? 0 : 1; };
+    var daftarGrup = Array.from(grup.entries());
+    daftarGrup.forEach(function (g) {
+      g[1] = g[1].slice().sort(function (a, b) { return baru(b) - baru(a); }); // stabil: urutan asal tetap
+    });
+    daftarGrup.sort(function (a, b) {
+      var ba = a[1].some(function (p) { return baru(p); }) ? 1 : 0;
+      var bb = b[1].some(function (p) { return baru(p); }) ? 1 : 0;
+      return bb - ba;
+    });
+
+    daftarGrup.forEach(function (g) {
+      var unit = g[0], anggota = g[1];
+
+      var kepala = buat('li', 'judul-unit');
+      kepala.appendChild(buat('span', null, (unit || '(Tanpa unit)') + ' · ' + anggota.length + ' orang'));
+      var hu = buat('button', 'hapus-unit', 'Hapus unit');
+      hu.type = 'button';
+      hu.title = 'Hapus semua peserta unit ini';
+      hu.addEventListener('click', function () { hapusDariUnit(unit); });
+      kepala.appendChild(hu);
+      elDaftar.appendChild(kepala);
+
+      anggota.forEach(function (p) {
+        var li = buat('li');
+        var info = buat('span', 'nama-peserta', p.nama + ' ');
+        info.appendChild(buat('small', null, '— ' + p.nomor_wa));
+        li.appendChild(info);
+
+        if (!awal.has(p.nomor_wa)) li.appendChild(buat('span', 'lencana-baru', 'Baru'));
+
+        var x = buat('button', 'hapus-peserta', '✕');
+        x.type = 'button';
+        x.title = 'Hapus ' + p.nama;
+        x.setAttribute('aria-label', 'Hapus ' + p.nama);
+        x.addEventListener('click', function () {
+          peserta.delete(p.nomor_wa);
+          renderPeserta();
+        });
+        li.appendChild(x);
+        elDaftar.appendChild(li);
+      });
+    });
+
+    if (gulirAtas) elDaftar.scrollTop = 0;
+
+    segarkanHapusUnit();
+    segarkanInfo(catatan);
   }
 
-  function tambahPeserta(daftar) {
+  /** Menambah peserta (tidak pernah menimpa yang sudah ada). $unit = unit asal bila dari dropdown unit */
+  function tambahPeserta(daftar, unit) {
+    var ditambah = 0;
     daftar.forEach(function (p) {
       var wa = String(p.nomor_wa || '').trim();
-      if (wa && !peserta.has(wa)) peserta.set(wa, { nomor_wa: wa, nama: p.nama });
+      if (!wa) return;
+      if (!peserta.has(wa)) {
+        peserta.set(wa, { nomor_wa: wa, nama: p.nama, unit: p.unit || unit || '' });
+        ditambah++;
+      } else if (!peserta.get(wa).unit && (p.unit || unit)) {
+        peserta.get(wa).unit = p.unit || unit;
+      }
     });
-    renderPeserta();
+
+    var catatan = '';
+    if (unit) {
+      catatan = ditambah
+        ? ditambah + ' pegawai dari unit "' + unit + '" ditambahkan.'
+        : 'Semua pegawai unit "' + unit + '" sudah ada di daftar.';
+    }
+    renderPeserta(true, catatan);
   }
 
   function renderHasil(data) {
@@ -229,31 +355,63 @@
     if (!e.target.closest('.kotak-cari-e')) elHasil.hidden = true;
   });
 
+  /* Tambah semua pegawai dari satu unit (menambah ke peserta yang sudah ada) */
   elUnit.addEventListener('change', function () {
     var unit = elUnit.value;
     if (!unit) return;
     elUnit.disabled = true;
+    elUnit.options[0].textContent = 'Memuat pegawai ' + unit + '...';
+    elUnit.value = '';
+
     ambil(J.urlPegawai + '?unit=' + encodeURIComponent(unit)).then(function (daftar) {
       if (!daftar.length) { tampilGalat('Tidak ada pegawai ber-nomor WA pada unit ini.'); return; }
       tampilGalat('');
-      tambahPeserta(daftar);
+
+      var lama = unitAnggota.get(unit) || [];
+      var baru = daftar.map(function (p) { return String(p.nomor_wa).trim(); })
+        .filter(function (w) { return w && lama.indexOf(w) < 0; });
+      unitAnggota.set(unit, lama.concat(baru));
+
+      tambahPeserta(daftar, unit);
     }).catch(function (e) {
       tampilGalat(e.message);
     }).then(function () {
+      elUnit.options[0].textContent = LABEL_TAMBAH_UNIT;
       elUnit.value = '';
       elUnit.disabled = false;
     });
   });
 
+  /* Hapus semua peserta */
+  elHapusSemua.addEventListener('click', function () {
+    if (!peserta.size) return;
+    if (!confirm('Hapus semua ' + peserta.size + ' peserta dari daftar?')) return;
+    peserta = new Map();
+    unitAnggota = new Map();
+    renderPeserta();
+  });
+
+  /* Hapus semua peserta dari satu unit (dropdown) */
+  elHapusUnit.addEventListener('change', function () {
+    var v = elHapusUnit.value;
+    if (!v) return;
+    hapusDariUnit(v === TANPA_UNIT ? '' : v);
+  });
+
   ['#eTanggal', '#eWaktu', '#eSelesai', '#eTempat'].forEach(function (s) {
     var el = $(s);
-    if (el) { el.addEventListener('change', segarkanInfo); el.addEventListener('input', segarkanInfo); }
+    if (el) {
+      el.addEventListener('change', function () { segarkanInfo(); });
+      el.addEventListener('input', function () { segarkanInfo(); });
+    }
   });
-  elKirim.addEventListener('change', segarkanInfo);
+  elKirim.addEventListener('change', function () { segarkanInfo(); });
 
   dlgEdit.addEventListener('close', function () {
     elCari.value = '';
     elHasil.hidden = true;
+    unitAnggota = new Map();
+    aturTombolSimpan(false);
   });
 
   function ubah(id) {
@@ -276,13 +434,15 @@
 
       peserta = new Map();
       awal = new Set();
+      unitAnggota = new Map();
       (j.anggota || []).forEach(function (a) {
         var wa = String(a.nomor_wa || '').trim();
-        peserta.set(wa, { nomor_wa: wa, nama: a.nama });
+        peserta.set(wa, { nomor_wa: wa, nama: a.nama, unit: a.unit || '' });
         awal.add(wa);
       });
       elKirim.checked = true;
-      renderPeserta();
+      elSimpan.disabled = false;
+      renderPeserta(true);
 
       dlgEdit.showModal();
       $('#eNama').focus();
@@ -298,7 +458,7 @@
       return;
     }
 
-    var tombol = $('#eSimpan');
+    var tombol = elSimpan;
     tombol.disabled = true;
 
     var badan = {
@@ -311,6 +471,16 @@
       kirim_pembaruan: elKirim.checked
     };
     if ($('#eSelesai')) badan.waktu_selesai = $('#eSelesai').value || null;
+
+    // Kelompok tersendiri per unit: hanya bila >= 2 unit ditambahkan lewat dropdown unit
+    var kelompokUnit = [];
+    unitAnggota.forEach(function (daftarWa, unit) {
+      var isi = daftarWa
+        .filter(function (wa) { return peserta.has(wa); })
+        .map(function (wa) { return { nomor_wa: wa, nama: peserta.get(wa).nama }; });
+      if (isi.length) kelompokUnit.push({ unit: unit, peserta: isi });
+    });
+    if (kelompokUnit.length >= 2) badan.kelompok_unit = kelompokUnit;
 
     fetch(urlRapat($('#eId').value), {
       method: 'PUT',

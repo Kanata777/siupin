@@ -8,6 +8,7 @@ use App\Jobs\KirimPembaruanRapatWa;
 use App\Jobs\KirimUndanganWa;
 use App\Models\KelompokRapat;
 use App\Models\KelompokRapatDetail;
+use App\Models\Pegawai;
 use App\Models\Rapat;
 use App\Models\RapatUndangan;
 use App\Models\TempatRapat;
@@ -151,7 +152,17 @@ class JadwalRapatController extends Controller
         }
 
         // ----- pilihan filter -----
-        $units = DB::table('unit_pegawai')->orderBy('nama_unit')->pluck('nama_unit');
+        // Hanya unit yang punya pegawai ber-nomor WA (unit kosong tidak ditampilkan di dropdown)
+        $units = DB::table('unit_pegawai as u')
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('pegawai as p')
+                    ->whereRaw('TRIM(p.nama_unit) = TRIM(u.nama_unit) COLLATE utf8mb4_general_ci')
+                    ->whereNotNull('p.nomor_wa')
+                    ->where('p.nomor_wa', '<>', '');
+            })
+            ->orderBy('u.nama_unit')
+            ->pluck('u.nama_unit');
         $tempatList = TempatRapat::orderBy('nama_tempat')->get(['id_tempat', 'nama_tempat']);
 
         $fmt = fn ($t) => Carbon::parse($t)->translatedFormat('d M Y');
@@ -179,11 +190,20 @@ class JadwalRapatController extends Controller
         Carbon::setLocale('id');
         $r = $this->satu($id);
 
-        $anggota = KelompokRapatDetail::where('id_kelompok', $r->id_kelompok)
+        $detail = KelompokRapatDetail::where('id_kelompok', $r->id_kelompok)
             ->orderBy('nama_lengkap')
-            ->get(['nama_lengkap', 'nomor_wa'])
-            ->map(fn ($d) => ['nama' => $d->nama_lengkap, 'nomor_wa' => $d->nomor_wa])
-            ->values();
+            ->get(['nama_lengkap', 'nomor_wa']);
+
+        // Unit tiap anggota diambil dari data pegawai (dipakai fitur "hapus per unit" di dialog ubah)
+        $unitPegawai = Pegawai::whereIn('nomor_wa', $detail->pluck('nomor_wa')->all())
+            ->get(['nomor_wa', 'nama_unit'])
+            ->mapWithKeys(fn ($p) => [trim($p->nomor_wa) => $p->nama_unit]);
+
+        $anggota = $detail->map(fn ($d) => [
+            'nama'     => $d->nama_lengkap,
+            'nomor_wa' => $d->nomor_wa,
+            'unit'     => $unitPegawai[trim($d->nomor_wa)] ?? '',
+        ])->values();
 
         [$label, $warna] = self::LABEL[$r->status_tampil] ?? self::LABEL['lainnya'];
         if ($r->status_tampil === 'lainnya') {
@@ -226,16 +246,21 @@ class JadwalRapatController extends Controller
         }
 
         $data = $request->validate([
-            'nama_rapat'         => 'required|string|max:100',
-            'catatan_rapat'      => 'nullable|string|max:255',
-            'tanggal'            => 'required|date',
-            'waktu'              => 'required|date_format:H:i',
-            'waktu_selesai'      => 'nullable|date_format:H:i|after:waktu',
-            'id_tempat'          => 'required|exists:tempat_rapat,id_tempat',
-            'peserta'            => 'required|array|min:1|max:3000',
-            'peserta.*.nomor_wa' => 'required|string|max:20',
-            'peserta.*.nama'     => 'required|string|max:100',
-            'kirim_pembaruan'    => 'nullable|boolean',
+            'nama_rapat'                         => 'required|string|max:100',
+            'catatan_rapat'                      => 'nullable|string|max:255',
+            'tanggal'                            => 'required|date',
+            'waktu'                              => 'required|date_format:H:i',
+            'waktu_selesai'                      => 'nullable|date_format:H:i|after:waktu',
+            'id_tempat'                          => 'required|exists:tempat_rapat,id_tempat',
+            'peserta'                            => 'required|array|min:1|max:3000',
+            'peserta.*.nomor_wa'                 => 'required|string|max:20',
+            'peserta.*.nama'                     => 'required|string|max:100',
+            'kirim_pembaruan'                    => 'nullable|boolean',
+            'kelompok_unit'                      => 'nullable|array|max:50',
+            'kelompok_unit.*.unit'               => 'required|string|max:100',
+            'kelompok_unit.*.peserta'            => 'required|array|min:1|max:3000',
+            'kelompok_unit.*.peserta.*.nomor_wa' => 'required|string|max:20',
+            'kelompok_unit.*.peserta.*.nama'     => 'required|string|max:100',
         ], [
             'required'         => ':attribute wajib diisi.',
             'exists'           => ':attribute tidak ditemukan.',
@@ -294,6 +319,17 @@ class JadwalRapatController extends Controller
         $dihapus  = $lamaNomor->diff($nomorBaru)->values();
         $pesertaBerubah = $ditambah->isNotEmpty() || $dihapus->isNotEmpty();
 
+        // ----- kelompok tersendiri per unit (hanya anggota yang masih ada di daftar peserta) -----
+        $kelompokUnit = collect($data['kelompok_unit'] ?? [])->map(function ($g) use ($nomorBaru) {
+            $isi = collect($g['peserta'])
+                ->map(fn ($p) => ['nomor_wa' => trim($p['nomor_wa']), 'nama' => trim($p['nama'])])
+                ->unique('nomor_wa')
+                ->filter(fn ($p) => $nomorBaru->contains($p['nomor_wa']))
+                ->values();
+
+            return ['unit' => trim($g['unit']), 'peserta' => $isi];
+        })->filter(fn ($g) => $g['peserta']->isNotEmpty())->values();
+
         // Draft tidak pernah mengirim WA
         $kirimBoleh     = $r->status_tampil !== 'draft';
         $kirimPembaruan = $request->boolean('kirim_pembaruan', true);
@@ -304,6 +340,7 @@ class JadwalRapatController extends Controller
         DB::transaction(function () use (
             $id, $data, $tempat, $selesai, $punyaSelesai, $waktuBerubah, $pesertaBerubah,
             $peserta, $nomorBaru, $ditambah, $tetap, $dihapus, $kirimBoleh, $kirimPembaruan, $jadwalBerubah,
+            $kelompokUnit,
             &$idBaru, &$idPembaruan
         ) {
             $baru = [
@@ -336,6 +373,13 @@ class JadwalRapatController extends Controller
 
             Rapat::where('id_rapat', $id)->update($baru);
 
+            // Menambahkan antar unit -> buat kelompok tersendiri untuk tiap unit
+            if ($kelompokUnit->count() >= 2) {
+                foreach ($kelompokUnit as $g) {
+                    $this->buatKelompokUnit($g['unit'], $data['nama_rapat'], $data['tanggal'], $g['peserta']);
+                }
+            }
+
             if (!$kirimBoleh) {
                 return;
             }
@@ -357,14 +401,14 @@ class JadwalRapatController extends Controller
             }
         });
 
-        // Dispatch SETELAH transaksi commit
-        $jeda = max(0, (int) config('wa.jeda', 3));
-        $urut = 0;
+        // Dispatch SETELAH transaksi commit, dengan jeda acak antar pesan (config/wa.php)
+        $tunda = $this->jadwalTunda(count($idBaru) + count($idPembaruan));
+        $urut  = 0;
         foreach ($idBaru as $idU) {
-            KirimUndanganWa::dispatch((int) $idU)->delay(now()->addSeconds($urut++ * $jeda));
+            KirimUndanganWa::dispatch((int) $idU)->delay(now()->addSeconds($tunda[$urut++]));
         }
         foreach ($idPembaruan as $idU) {
-            KirimPembaruanRapatWa::dispatch((int) $idU, $lama)->delay(now()->addSeconds($urut++ * $jeda));
+            KirimPembaruanRapatWa::dispatch((int) $idU, $lama)->delay(now()->addSeconds($tunda[$urut++]));
         }
 
         $pesan = 'Rapat berhasil diperbarui.';
@@ -376,6 +420,9 @@ class JadwalRapatController extends Controller
         }
         if ($dihapus->isNotEmpty()) {
             $pesan .= ' ' . $dihapus->count() . ' peserta dihapus.';
+        }
+        if ($kelompokUnit->count() >= 2) {
+            $pesan .= ' Kelompok per unit dibuat untuk ' . $kelompokUnit->count() . ' unit.';
         }
 
         session()->flash('sukses', $pesan);
@@ -501,6 +548,43 @@ class JadwalRapatController extends Controller
     // ======================================================================
 
     /**
+     * Jadwal jeda (detik dari sekarang) untuk $jumlah pesan WA: jeda acak antar pesan
+     * sesuai profil di config/wa.php, ditambah istirahat tiap per_batch pesan.
+     * Pesan pertama langsung dijalankan (jeda 0).
+     *
+     * @return int[]
+     */
+    private function jadwalTunda(int $jumlah): array
+    {
+        $semua  = (array) config('wa.profil', []);
+        $profil = (string) request()->input('jeda');
+        if (!isset($semua[$profil])) {
+            $profil = (string) config('wa.profil_bawaan', 'normal');
+        }
+
+        [$a, $b] = $semua[$profil] ?? [3, 3];
+        $min = max(0, min($a, $b));
+        $max = max($a, $b);
+
+        $perBatch  = max(0, (int) config('wa.per_batch', 0));
+        $jedaBatch = max(0, (int) config('wa.jeda_batch', 0));
+
+        $hasil = [];
+        $tunda = 0;
+        for ($i = 0; $i < $jumlah; $i++) {
+            if ($i > 0) {
+                $tunda += random_int($min, $max);
+                if ($perBatch > 0 && $i % $perBatch === 0) {
+                    $tunda += $jedaBatch;
+                }
+            }
+            $hasil[] = $tunda;
+        }
+
+        return $hasil;
+    }
+
+    /**
      * Pastikan tiap peserta punya baris di rapat_undangan, set ke PENDING,
      * lalu kembalikan id-id barisnya.
      */
@@ -566,6 +650,23 @@ class JadwalRapatController extends Controller
         KelompokRapat::isiAnggota($kelompok->id_kelompok, $nama, $peserta);
 
         return $kelompok;
+    }
+
+    /** Kelompok tersendiri per unit (dilewati bila sudah ada kelompok dengan anggota persis sama) */
+    private function buatKelompokUnit(string $unit, string $namaRapat, string $tanggal, $peserta): void
+    {
+        if ($this->cariKelompokSama($peserta->pluck('nomor_wa')->all())) {
+            return;
+        }
+
+        $nama = mb_substr(
+            'Unit ' . $unit . ' - ' . $namaRapat . ' (' . date('d-m-Y', strtotime($tanggal)) . ')',
+            0,
+            100
+        );
+
+        $kelompok = KelompokRapat::buat($nama);
+        KelompokRapat::isiAnggota($kelompok->id_kelompok, $nama, $peserta);
     }
 
     /** Query dasar dengan semua filter, kecuali status */
