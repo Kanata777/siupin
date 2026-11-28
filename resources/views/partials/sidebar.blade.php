@@ -11,6 +11,7 @@
         ['Daftar Hadir',    'hadir.index',     'hadir.*',       'cek',           false],
         ['Tempat Rapat',    'tempat.index',    'tempat.*',      'ruang',         true],
         ['Kelompok Rapat',  'kelompok.index',  'kelompok.*',    'users',         true],
+        ['Tambah User',     'pengguna.index',  'pengguna.*',    'users',         true],
         ['Notulensi Rapat', 'notulensi.index', 'notulensi.*',   'catatan',       false],
         ['Status WA',       'wa.index',        'wa.*',          'berkas',        false],
         ['Laporan & Rekap', 'laporan.index',   'laporan.*',     'laporan',       false],

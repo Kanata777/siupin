@@ -36,6 +36,62 @@ class AbsensiService
         return hash_equals(self::kode($idRapat), $kode);
     }
 
+    // ======================================================================
+    //  TOKEN QR (bukti peserta men-scan QR di lokasi)
+    // ======================================================================
+
+    /** Nomor "slot" waktu; berganti tiap qr_detik. 0 bila QR dibuat tetap. */
+    private static function slot(): int
+    {
+        if (! config('absen.qr_berganti', true)) {
+            return 0;
+        }
+
+        return intdiv(time(), max(15, (int) config('absen.qr_detik', 60)));
+    }
+
+    private static function token(int $idRapat, int $slot): string
+    {
+        return substr(hash_hmac('sha256', 'qr|' . $idRapat . '|' . $slot, (string) config('app.key')), 0, 12);
+    }
+
+    /** Token valid bila berasal dari slot sekarang atau 2 slot sebelumnya (toleransi keterlambatan scan) */
+    public static function tokenValid(int $idRapat, string $token): bool
+    {
+        $slot    = self::slot();
+        $rentang = config('absen.qr_berganti', true) ? [$slot, $slot - 1, $slot - 2] : [0];
+
+        foreach ($rentang as $s) {
+            if (hash_equals(self::token($idRapat, $s), $token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Link yang dimasukkan ke QR di layar panitia (memuat token yang berganti) */
+    public static function urlQr(int $idRapat): string
+    {
+        return self::url($idRapat) . '?t=' . self::token($idRapat, self::slot());
+    }
+
+    /** Setelah scan QR yang sah, browser peserta diberi izin sementara untuk mengisi form */
+    public static function beriIzin(int $idRapat): void
+    {
+        session(['absen_izin.' . $idRapat => now()->addMinutes(max(1, (int) config('absen.izin_menit', 10)))->timestamp]);
+    }
+
+    public static function punyaIzin(int $idRapat): bool
+    {
+        return (int) session('absen_izin.' . $idRapat, 0) > time();
+    }
+
+    public static function cabutIzin(int $idRapat): void
+    {
+        session()->forget('absen_izin.' . $idRapat);
+    }
+
     /** Apakah aplikasi dan absensi dilayani dua domain berbeda (lihat config/absen.php) */
     public static function terpisah(): bool
     {

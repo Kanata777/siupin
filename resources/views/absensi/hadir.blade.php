@@ -59,12 +59,16 @@
             <h3>Scan untuk absen</h3>
             <p class="abs-judul-rapat">{{ $rapat->nama_rapat }}</p>
             <div id="absQr" class="abs-qr"></div>
-            <p class="abs-bantu">Peserta scan QR ini dengan kamera HP, lalu memasukkan nomor WhatsApp yang menerima undangan.</p>
+            <p class="abs-bantu">
+                Peserta scan QR ini langsung di lokasi rapat, lalu memasukkan nomor WhatsApp yang menerima undangan.
+                @if ($berganti) QR berganti otomatis setiap menit, jadi tampilkan di layar atau proyektor (tidak untuk dicetak atau difoto lalu dibagikan). @endif
+            </p>
             <p class="abs-bantu">Halaman scan: <a href="{{ $urlScan }}" target="_blank" rel="noopener">{{ $urlScan }}</a></p>
-            <div class="abs-aksi">
-                <button type="button" class="abs-btn" id="btnSalin">Salin link</button>
-                <button type="button" class="abs-btn" onclick="window.print()">Cetak QR</button>
-            </div>
+            @unless ($berganti)
+                <div class="abs-aksi">
+                    <button type="button" class="abs-btn" onclick="window.print()">Cetak QR</button>
+                </div>
+            @endunless
         </section>
 
         <section class="abs-kartu">
@@ -105,28 +109,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         (function () {
-            var URL_ABSEN = @json($urlAbsen);
+            var URL_QR    = @json($urlQr);
             var URL_DATA  = @json($urlData);
             var awal      = @json($awal);
 
             // ---- QR ----
             var kotakQr = document.getElementById('absQr');
+            var qr = null;
             if (typeof QRCode !== 'undefined') {
-                new QRCode(kotakQr, { text: URL_ABSEN, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+                qr = new QRCode(kotakQr, { text: URL_QR, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
             } else {
                 kotakQr.textContent = 'QR belum termuat. Periksa koneksi internet lalu muat ulang halaman.';
             }
-
-            // ---- Salin link ----
-            document.getElementById('btnSalin').addEventListener('click', function () {
-                var tombol = this;
-                function ok() { tombol.textContent = 'Tersalin'; setTimeout(function () { tombol.textContent = 'Salin link'; }, 1500); }
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(URL_ABSEN).then(ok).catch(function () { window.prompt('Salin link absensi:', URL_ABSEN); });
-                } else {
-                    window.prompt('Salin link absensi:', URL_ABSEN);
-                }
-            });
 
             // ---- Tampilan daftar ----
             function isiTabel(tbody, baris, kosong) {
@@ -153,6 +147,9 @@
             }
 
             function tampil(d) {
+                // QR berganti tiap menit: segarkan bila alamat QR dari server berubah
+                if (d.qr && qr && d.qr !== URL_QR) { URL_QR = d.qr; qr.makeCode(d.qr); }
+
                 document.getElementById('jmlHadir').textContent = d.jumlah_hadir;
                 document.getElementById('jmlUndangan').textContent = d.jumlah_undangan;
                 document.getElementById('persen').textContent = d.persen;

@@ -50,6 +50,9 @@
         .sukses h2{margin:10px 0 4px;font-size:19px}
         .sukses p{margin:0;color:#5b6b7f;font-size:14px}
         .sukses .nama{margin-top:12px;font-size:17px;font-weight:600;color:#1b2a3f}
+        a.tombol-link{display:block;margin-top:14px;padding:14px;border-radius:10px;background:#1b2a3f;color:#fff;
+               text-align:center;text-decoration:none;font-weight:600;font-size:16px}
+        a.tombol-link:hover{background:#26395a}
     </style>
 </head>
 <body>
@@ -91,6 +94,17 @@
             @endif
             <div class="nama">{{ $hasil['nama'] }}</div>
         </div>
+
+    @elseif ($perluScan)
+        @if ($qrKedaluwarsa)
+            <div class="kotak galat" role="alert">QR code sudah kedaluwarsa. Scan ulang QR code yang sedang tampil di layar lokasi rapat.</div>
+        @endif
+        <div class="kotak info">
+            Absensi dilakukan dengan <b>scan QR code</b> yang ditampilkan di lokasi rapat.
+            Link ini tidak dapat dipakai untuk mengisi absen secara langsung.
+        </div>
+        <a href="{{ route('absen.scan') }}" class="tombol-link">Buka scanner kamera</a>
+        <p class="bantu">Atau scan QR code memakai aplikasi kamera bawaan HP.</p>
 
     @else
         @if ($hasil && isset($pesanGalat[$hasil['status'] ?? '']))

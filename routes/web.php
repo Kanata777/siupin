@@ -12,6 +12,7 @@ use App\Http\Controllers\TempatRapatController;
 use App\Http\Controllers\StatusWaController;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\AbsenPublikController;
+use App\Http\Controllers\UserController;
 
 // ----------------------------------------------------------------------
 // Dua domain dalam satu project (lihat config/absen.php):
@@ -59,7 +60,7 @@ $ruteApp = function () {
     //                   lewat Rapat::terlihat() / milikSaya()).
     //                   + Laporan & Rekap (hanya data rapat yang dia buat).
     //   - Super Admin : semua di atas (melihat semua data) + Jadwal Rapat, Tempat Rapat,
-    //                   Kelompok Rapat (kelola), dan laporan data master.
+    //                   Kelompok Rapat (kelola), Tambah User, dan laporan data master.
     // ----------------------------------------------------------------------
     Route::middleware('auth')->group(function () {
 
@@ -156,6 +157,10 @@ $ruteApp = function () {
             Route::post('/tempat-rapat', [TempatRapatController::class, 'store'])->name('tempat.store');
             Route::put('/tempat-rapat/{tempat}', [TempatRapatController::class, 'update'])->name('tempat.update');
             Route::delete('/tempat-rapat/{tempat}', [TempatRapatController::class, 'destroy'])->name('tempat.destroy');
+
+            // Tambah user (akun login untuk dashboard user)
+            Route::get('/pengguna', [UserController::class, 'index'])->name('pengguna.index');
+            Route::post('/pengguna', [UserController::class, 'store'])->name('pengguna.store');
         });
     });
 };

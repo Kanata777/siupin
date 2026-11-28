@@ -57,6 +57,10 @@
             outline:2px solid rgba(26,95,208,.35); outline-offset:0; border-color:var(--rb-blue);
         }
 
+        /* Pilihan dikunci (mis. Tempat Rapat saat metode Daring) */
+        .rapat-buat select:disabled { background:#f1f5f9; color:#94a3b8; cursor:not-allowed; }
+        .rapat-buat .ikon-input:has(select:disabled) > .i { opacity:.45; }
+
         /* ---------- Input dengan ikon di kiri ---------- */
         .rapat-buat .ikon-input, .rapat-buat .wk-pilih { position:relative; margin:0; min-width:0; }
         .rapat-buat .ikon-input { flex:1; }
@@ -65,6 +69,7 @@
             width:16px; height:16px; color:#5b6b86; pointer-events:none; z-index:1;
         }
         .rapat-buat .ikon-input select, .rapat-buat .wk-pilih select, .rapat-buat .wk-pilih input { padding-left:34px; cursor:pointer; font-variant-numeric:tabular-nums; }
+        .rapat-buat .ikon-input select:disabled { cursor:not-allowed; }
         .rapat-buat .wk-pilih select option:disabled { color:#9aa3b2; }
 
         /* ---------- Jadwal ---------- */
@@ -84,6 +89,8 @@
         .rapat-buat .wk-chip:hover { border-color:var(--rb-blue); color:var(--rb-blue); }
         .rapat-buat .wk-chip.aktif { background:var(--rb-blue); border-color:var(--rb-blue); color:#fff; }
         .rapat-buat .wk-chip:focus-visible { outline:2px solid rgba(26,95,208,.45); outline-offset:2px; }
+        .rapat-buat .wk-chip:disabled { opacity:.45; background:#f1f5f9; cursor:not-allowed; }
+        .rapat-buat .wk-chip:disabled:hover { border-color:var(--rb-line); color:var(--rb-ink); }
 
         .rapat-buat .wk-garis { margin:2px 2px 0; }
         .rapat-buat .wk-jalur { position:relative; height:8px; border-radius:4px; background:#dbe3ef; }
@@ -109,6 +116,7 @@
         .rapat-buat .badge-sesi.siang { background:#fcebc7; color:#865800; }
         .rapat-buat .badge-sesi.fullday, .rapat-buat .badge-sesi.seharian { background:#dbe6fb; color:#1a4fa8; }
         .rapat-buat .wk-hint { margin:0; font-size:12px; line-height:1.45; color:var(--rb-mute); }
+        .rapat-buat .wk-peringatan { color:#865800; font-weight:600; }
 
         .sembunyi-visual { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
@@ -480,6 +488,9 @@
                             @endif
                         </div>
 
+                        {{-- Pemberitahuan bila ada jam yang sudah terlewat (hanya untuk tanggal hari ini) --}}
+                        <p class="wk-hint wk-peringatan" id="infoLewat" aria-live="polite" hidden></p>
+
                         @if ($punya['selesai'])
                             <div class="wk-preset" role="group" aria-label="Pilihan cepat">
                                 <button type="button" class="wk-chip" data-mulai="07:00" data-selesai="12:00">Pagi 07:00–12:00</button>
@@ -522,7 +533,7 @@
                                 <div class="ikon-input">
                                     <svg class="i"><use href="#i-ruang"/></svg>
                                     <select id="id_tempat" name="id_tempat" required>
-                                        <option value="">— Pilih tempat —</option>
+                                        <option value="" id="opsiKosongTempat">— Pilih tempat —</option>
                                         @foreach ($tempat as $t)
                                             @php $label = $t->nama_tempat . ($t->gedung ? ' (' . $t->gedung . ')' : ''); @endphp
                                             <option value="{{ $t->id_tempat }}" data-label="{{ $label }}" @selected((string) old('id_tempat') === (string) $t->id_tempat)>
@@ -806,7 +817,7 @@
     </script>
     <script src="{{ asset('js/buat-rapat.js') }}?v={{ @filemtime(public_path('js/buat-rapat.js')) }}"></script>
 
-    {{-- Pemilih waktu, penentuan sesi otomatis, garis waktu, ringkasan, dan status tempat --}}
+    {{-- Pemilih waktu, penentuan sesi otomatis, garis waktu, ringkasan, status tempat, jam terlewat, dan metode daring --}}
     <script>
         (function () {
             var BUKA  = @json($jamBuka);
@@ -814,6 +825,11 @@
             var BATAS = @json($batasSiang);
             var LANGKAH = @json($langkah);
             var URL_STATUS = @json(route('rapat.status-tempat'));
+
+            // Waktu server saat halaman dibuka (tidak bergantung pada jam perangkat pengguna)
+            var HARI_INI   = @json(now()->toDateString());
+            var MENIT_AWAL = @json(now()->hour * 60 + now()->minute);
+            var T0 = Date.now();
 
             var form    = document.getElementById('formRapat');
             var tanggal = document.getElementById('tanggal');
@@ -828,6 +844,11 @@
             var statusTempat = document.getElementById('statusTempat');
             var barisLuar = document.getElementById('barisTempatLuar');
             var luarNama  = document.getElementById('tempat_luar_nama');
+            var infoLewat = document.getElementById('infoLewat');
+            var barisLink = document.getElementById('barisLink');
+            var opsiKosong = document.getElementById('opsiKosongTempat');
+            var radioMetode = document.querySelectorAll('input[name="metode"]');
+            var TEKS_KOSONG = opsiKosong ? opsiKosong.text : '';
 
             var LABEL = { pagi: 'Sesi Pagi', siang: 'Sesi Siang', fullday: 'Fullday' };
             var timerCek = null, seqCek = 0;
@@ -839,6 +860,7 @@
             var catatan    = '';                      // pemberitahuan jam disesuaikan otomatis
             var keyTerakhir = '', mulaiTerakhir = '';
             var timerSlot = null, seqSlot = 0;
+            var tempatSebelum = '';                   // tempat yang dipilih sebelum beralih ke Daring
 
             function menit(t) { var p = t.split(':'); return (+p[0]) * 60 + (+p[1]); }
             function jam(m) { return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2); }
@@ -846,6 +868,70 @@
                 return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
                     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
                 });
+            }
+
+            // ===== Jam yang sudah terlewat (hanya berlaku bila tanggal rapat = hari ini) =====
+            function menitSekarang() { return MENIT_AWAL + Math.floor((Date.now() - T0) / 60000); }
+            function hariIni() { return tanggal.value === HARI_INI; }
+            // jam MULAI yang sudah lewat dari sekarang
+            function lewat(v) { return hariIni() && menit(v) < menitSekarang(); }
+            // jam SELESAI yang sudah lewat atau tepat sekarang
+            function selesaiLewat(v) { return hariIni() && menit(v) <= menitSekarang(); }
+
+            function pesanMulai() {
+                if (!mulai.value) return '';
+                if (lewat(mulai.value)) return 'Jam mulai sudah terlewat. Pilih jam lain atau ganti tanggal.';
+                if (penuhMulai[mulai.value]) return 'Tempat dipakai pada jam mulai ini.';
+                return '';
+            }
+
+            function perbaruiInfoLewat() {
+                if (!infoLewat) return;
+                if (!hariIni()) { infoLewat.hidden = true; infoLewat.textContent = ''; return; }
+
+                var ada = false, adaLewat = false;
+                Array.prototype.forEach.call(mulai.options, function (o) {
+                    if (lewat(o.value)) adaLewat = true; else ada = true;
+                });
+
+                if (!ada) {
+                    infoLewat.textContent = 'Jam rapat hari ini sudah berakhir. Pilih tanggal lain.';
+                    infoLewat.hidden = false;
+                } else if (adaLewat) {
+                    infoLewat.textContent = 'Jam yang sudah terlewat (sebelum ' + jam(Math.min(menitSekarang(), 1439)) + ') tidak dapat dipilih.';
+                    infoLewat.hidden = false;
+                } else {
+                    infoLewat.hidden = true;
+                    infoLewat.textContent = '';
+                }
+            }
+
+            // ===== Metode rapat: Daring -> Tempat Rapat dikunci =====
+            function daring() {
+                var r = document.querySelector('input[name="metode"]:checked');
+                return !!r && r.value === 'daring';
+            }
+
+            function aturMetode() {
+                var d = daring();
+
+                if (d) {
+                    if (tempat.value) tempatSebelum = tempat.value;
+                    tempat.value = '';
+                    tempat.disabled = true;
+                    tempat.required = false;
+                    tempat.setCustomValidity('');
+                    if (opsiKosong) opsiKosong.text = '— Tidak diperlukan (daring) —';
+                } else {
+                    tempat.disabled = false;
+                    tempat.required = true;
+                    if (opsiKosong) opsiKosong.text = TEKS_KOSONG;
+                    if (tempatSebelum && !tempat.value) tempat.value = tempatSebelum;
+                    tempatSebelum = '';
+                }
+
+                if (barisLink) barisLink.hidden = !d;
+                aturTempatLuar();
             }
 
             function durasi(m, s) {
@@ -863,25 +949,42 @@
                 return 'fullday';
             }
 
-            // Label & status aktif/nonaktif tiap pilihan jam (jam yang bentrok diberi tanda "Dipakai")
+            // Label & status aktif/nonaktif tiap pilihan jam
+            // (jam terlewat dan jam yang bentrok dengan rapat lain tidak bisa dipilih)
             function terapkanOpsi() {
                 var m = mulai.value;
                 Array.prototype.forEach.call(mulai.options, function (o) {
                     var p = !!penuhMulai[o.value];
-                    o.disabled = p;
-                    o.text = o.value + (p ? '  — Dipakai' : '');
+                    var l = lewat(o.value);
+                    o.disabled = p || l;
+                    o.text = o.value + (l ? '  — Terlewat' : (p ? '  — Dipakai' : ''));
                 });
                 if (selesai) {
                     Array.prototype.forEach.call(selesai.options, function (o) {
-                        var lewat = !!m && o.value <= m;
+                        var lewatMulai = !!m && o.value <= m;
+                        var l = selesaiLewat(o.value);
                         var p = !!penuhSelesai[o.value];
-                        o.disabled = lewat || p;
-                        o.text = o.value + (p && !lewat ? '  — Dipakai' : '');
+                        o.disabled = lewatMulai || l || p;
+                        o.text = o.value + (p && !lewatMulai && !l ? '  — Dipakai' : '');
                     });
                 }
             }
 
-            // Jam selesai yang tidak valid (<= mulai, atau bentrok) otomatis dipindah ke pilihan terdekat
+            // Jam mulai yang sudah terlewat otomatis dipindah ke jam berikutnya yang masih bisa dipilih
+            function aturOpsiMulai() {
+                var opsi = mulai.options, cur = opsi[mulai.selectedIndex], i;
+                if (!cur || !lewat(cur.value)) return false;
+
+                for (i = 0; i < opsi.length; i++) {
+                    if (!opsi[i].disabled && menit(opsi[i].value) > menit(cur.value)) {
+                        mulai.value = opsi[i].value;
+                        return true;
+                    }
+                }
+                return false; // semua jam hari ini sudah lewat
+            }
+
+            // Jam selesai yang tidak valid (<= mulai, terlewat, atau bentrok) otomatis dipindah ke pilihan terdekat
             function aturOpsiSelesai() {
                 if (!selesai) return false;
                 var m = mulai.value, opsi = selesai.options, i, pilih = null;
@@ -947,6 +1050,13 @@
             }
 
             function tampilStatus() {
+                if (daring()) {
+                    statusTempat.innerHTML = '<span class="st-badge cek">Daring</span>' +
+                        '<span class="st-info">Rapat online, tempat tidak diperlukan. Isi link rapat di bawah.</span>';
+                    tempat.setCustomValidity('');
+                    return;
+                }
+
                 var opt = tempat.options[tempat.selectedIndex];
                 if (!tempat.value) {
                     statusTempat.innerHTML = '';
@@ -976,6 +1086,7 @@
 
             function cekTempat() {
                 clearTimeout(timerCek);
+                if (daring()) return; // rapat daring: ketersediaan tempat tidak diperiksa
                 timerCek = setTimeout(function () {
                     var m = mulai.value, s = selesai ? selesai.value : '';
                     if (!tanggal.value || !m || (s && s <= m)) return;
@@ -1024,13 +1135,15 @@
                 clearTimeout(timerSlot);
                 timerSlot = setTimeout(function () {
                     var id = tempat.value;
-                    if (!id || id === 'luar' || !tanggal.value || !mulai.value) return;
+                    if (daring() || !id || id === 'luar' || !tanggal.value || !mulai.value) return;
 
                     var mine = ++seqSlot;
                     var tugas = [], mulaiDipakai = mulai.value;
 
                     Array.prototype.forEach.call(mulai.options, function (o) {
-                        var m = o.value, s = jam(Math.min(menit(m) + LANGKAH, menit(TUTUP)));
+                        var m = o.value;
+                        if (lewat(m)) return; // jam terlewat tidak perlu diperiksa
+                        var s = jam(Math.min(menit(m) + LANGKAH, menit(TUTUP)));
                         tugas.push(tanyaTempat(m, s).then(function (d) { return { jenis: 'm', nilai: m, d: d }; }));
                     });
                     if (selesai) {
@@ -1060,7 +1173,7 @@
                         for (i = 0; i < opsi.length; i++) { if (pm[opsi[i].value]) { pertamaPenuh = i; break; } }
                         if (pertamaPenuh >= 0) {
                             for (i = pertamaPenuh + 1; i < opsi.length; i++) {
-                                if (!pm[opsi[i].value]) { bisaMulai = opsi[i].value; break; }
+                                if (!pm[opsi[i].value] && !lewat(opsi[i].value)) { bisaMulai = opsi[i].value; break; }
                             }
                         }
 
@@ -1068,10 +1181,10 @@
                         if (pm[mulai.value]) {
                             var baru = '';
                             for (i = 0; i < opsi.length; i++) {
-                                if (!pm[opsi[i].value] && menit(opsi[i].value) > menit(mulai.value)) { baru = opsi[i].value; break; }
+                                if (!pm[opsi[i].value] && !lewat(opsi[i].value) && menit(opsi[i].value) > menit(mulai.value)) { baru = opsi[i].value; break; }
                             }
                             if (!baru) {
-                                for (i = 0; i < opsi.length; i++) { if (!pm[opsi[i].value]) { baru = opsi[i].value; break; } }
+                                for (i = 0; i < opsi.length; i++) { if (!pm[opsi[i].value] && !lewat(opsi[i].value)) { baru = opsi[i].value; break; } }
                             }
                             if (baru) {
                                 catatan = 'Jam mulai dipindah ke ' + baru + ' karena tempat sedang dipakai.';
@@ -1089,7 +1202,7 @@
                             catatan = 'Jam selesai disesuaikan ke ' + selesai.value + ' karena tempat dipakai setelahnya.';
                         }
 
-                        mulai.setCustomValidity(pm[mulai.value] ? 'Tempat dipakai pada jam mulai ini.' : '');
+                        mulai.setCustomValidity(pesanMulai());
                         if (selesai) {
                             selesai.setCustomValidity(
                                 (selesai.value <= mulai.value) ? 'Waktu selesai harus setelah waktu mulai.' :
@@ -1114,12 +1227,15 @@
                 gambarGaris(m, s, k);
                 chips.forEach(function (c) {
                     c.classList.toggle('aktif', c.dataset.mulai === m && c.dataset.selesai === s);
+                    // pilihan cepat yang jam mulainya sudah terlewat tidak bisa diklik
+                    c.disabled = lewat(c.dataset.mulai);
                 });
 
                 var tgl = formatTanggal(tanggal.value);
                 teksTgl.textContent = tgl || '—';
                 document.getElementById('teksWaktu').textContent = s ? m + ' – ' + s : m;
 
+                perbaruiInfoLewat();
             }
 
             function segarkan() {
@@ -1140,12 +1256,20 @@
                 }
 
                 terapkanOpsi();
+
+                // jam mulai terlewat (tanggal hari ini) -> pindah ke jam berikutnya yang masih bisa dipilih
+                if (aturOpsiMulai()) {
+                    mulaiTerakhir = mulai.value;
+                    penuhSelesai = {};
+                    terapkanOpsi();
+                }
                 aturOpsiSelesai();
 
                 var m = mulai.value;
                 var s = selesai ? selesai.value : '';
 
                 // validasi tambahan (cadangan; server tetap memeriksa)
+                mulai.setCustomValidity(pesanMulai());
                 if (selesai) selesai.setCustomValidity(s && m && s <= m ? 'Waktu selesai harus setelah waktu mulai.' : '');
 
                 tampilRingkasanJadwal();
@@ -1156,9 +1280,32 @@
                 tampilStatus();
             }
 
+            // Jam berjalan: tiap menit, jam yang baru saja terlewat ikut dikunci
+            var menitTerakhir = menitSekarang();
+            setInterval(function () {
+                var n = menitSekarang();
+                if (n === menitTerakhir) return;
+                menitTerakhir = n;
+                if (!hariIni()) return;
+
+                var sebelum = mulai.value;
+                terapkanOpsi();
+                if (aturOpsiMulai()) {
+                    mulaiTerakhir = mulai.value;
+                    penuhSelesai = {};
+                    terapkanOpsi();
+                }
+                aturOpsiSelesai();
+                mulai.setCustomValidity(pesanMulai());
+                tampilRingkasanJadwal();
+
+                if (mulai.value !== sebelum) segarkan(); // jam mulai bergeser: periksa ulang ketersediaan
+            }, 20000);
+
             // Pilihan cepat
             chips.forEach(function (c) {
                 c.addEventListener('click', function () {
+                    if (c.disabled) return;
                     mulai.value = c.dataset.mulai;
                     penuhSelesai = {};
                     terapkanOpsi();
@@ -1173,7 +1320,16 @@
             });
             tempat.addEventListener('change', function () { aturTempatLuar(); tampilStatus(); });
 
-            // Reset mengembalikan nilai bawaan form (07:00 - 15:00 = Fullday)
+            // Pilih metode: Daring mengunci Tempat Rapat, Tatap Muka membukanya kembali
+            Array.prototype.forEach.call(radioMetode, function (r) {
+                r.addEventListener('change', function () {
+                    aturMetode();
+                    keyTerakhir = ''; // paksa pemeriksaan ulang ketersediaan tempat
+                    segarkan();
+                });
+            });
+
+            // Reset mengembalikan nilai bawaan form (07:00 - 15:00 = Fullday, Tatap Muka)
             form.addEventListener('reset', function () {
                 setTimeout(function () {
                     // hapus status lama; label asli dikembalikan oleh cekTempat()
@@ -1185,15 +1341,18 @@
                     penuhMulai = {}; penuhSelesai = {};
                     ketDipakai = ''; bisaMulai = ''; catatan = '';
                     keyTerakhir = ''; mulaiTerakhir = '';
+                    tempatSebelum = '';
                     mulai.setCustomValidity('');
                     if (selesai) selesai.setCustomValidity('');
                     statusTempat.innerHTML = '';
                     tempat.setCustomValidity('');
+                    aturMetode();
                     aturTempatLuar();
                     segarkan();
                 }, 0);
             });
 
+            aturMetode();
             aturTempatLuar();
             if (tempat.value === 'luar') tampilStatus();
             segarkan();

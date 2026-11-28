@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 // `role` sengaja TIDAK ada di Fillable: peran hanya boleh diubah lewat kode/SQL/artisan,
 // tidak lewat input form.
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'username', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {

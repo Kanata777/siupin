@@ -130,10 +130,10 @@ class KirimUndanganWa implements ShouldQueue
             $baris[] = "Agenda       : {$r->catatan_rapat}";
         }
 
-        // Link absensi SIUPIN (hanya bisa dipakai saat rapat berlangsung).
+        // Link scanner absensi SIUPIN (form absen hanya terbuka lewat scan QR di lokasi, saat rapat berlangsung).
         // Bila link gagal dibuat, undangan tetap dikirim tanpa link.
         try {
-            $linkAbsen = AbsensiService::url((int) $r->getKey());
+            $linkAbsen = AbsensiService::urlScan();
         } catch (Throwable $e) {
             Log::warning('Link absensi gagal dibuat untuk undangan (rapat ' . $r->getKey() . '): ' . $e->getMessage());
             $linkAbsen = null;
@@ -142,8 +142,8 @@ class KirimUndanganWa implements ShouldQueue
         if ($linkAbsen) {
             $baris[] = "";
             $baris[] = "*Absensi kehadiran (SIUPIN):*";
+            $baris[] = "Saat rapat berlangsung, scan QR code yang ditampilkan di lokasi rapat melalui:";
             $baris[] = $linkAbsen;
-            $baris[] = "_Link absensi hanya aktif saat rapat berlangsung. Gunakan nomor WhatsApp ini untuk absen._";
         }
 
         $baris[] = "";

@@ -50,7 +50,8 @@ class AbsensiController extends Controller
         return view('absensi.hadir', [
             'rapat'       => $rapat,
             'jam'         => $jam,
-            'urlAbsen'    => AbsensiService::url($rapat->id_rapat),
+            'urlQr'       => AbsensiService::urlQr($rapat->id_rapat),
+            'berganti'    => (bool) config('absen.qr_berganti', true),
             'urlScan'     => AbsensiService::urlScan(),
             'urlData'     => route('hadir.data', $rapat->id_rapat),
             'awal'        => AbsensiService::ringkasan($rapat),
@@ -61,7 +62,10 @@ class AbsensiController extends Controller
     /** Data terbaru (JSON) untuk pembaruan otomatis di halaman Daftar Hadir */
     public function data(int $id)
     {
-        return response()->json(AbsensiService::ringkasan($this->cari($id)));
+        $rapat = $this->cari($id);
+
+        // 'qr' = alamat QR terbaru (berganti tiap menit), dipakai halaman untuk menyegarkan QR
+        return response()->json(AbsensiService::ringkasan($rapat) + ['qr' => AbsensiService::urlQr($rapat->id_rapat)]);
     }
 
     // ------------------------------------------------------------------

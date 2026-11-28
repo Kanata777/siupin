@@ -10,11 +10,11 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Login / logout SIUPIN (berbasis tabel `users`).
- * Akun dibuat lewat: php artisan siupin:pengguna "Nama" email@contoh.com --role=user
+ * Masuk memakai username + kata sandi. Akun lama juga masih boleh memakai email.
  */
 class AuthController extends Controller
 {
-    /** Maksimal percobaan gagal per email + IP sebelum dikunci sementara */
+    /** Maksimal percobaan gagal per username + IP sebelum dikunci sementara */
     private const MAKS_PERCOBAAN = 5;
     private const KUNCI_DETIK    = 60;
 
@@ -26,27 +26,30 @@ class AuthController extends Controller
     public function masuk(Request $request)
     {
         $data = $request->validate([
-            'email'    => 'required|email',
+            'username' => 'required|string|max:255',
             'password' => 'required|string',
         ], [
-            'email.required'    => 'Email wajib diisi.',
-            'email.email'       => 'Format email tidak valid.',
+            'username.required' => 'Username wajib diisi.',
             'password.required' => 'Kata sandi wajib diisi.',
         ]);
 
-        $kunci = Str::lower($data['email']) . '|' . $request->ip();
+        $login = Str::lower(trim($data['username']));
+        $kunci = $login . '|' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($kunci, self::MAKS_PERCOBAAN)) {
             throw ValidationException::withMessages([
-                'email' => 'Terlalu banyak percobaan masuk. Coba lagi dalam ' . RateLimiter::availableIn($kunci) . ' detik.',
+                'username' => 'Terlalu banyak percobaan masuk. Coba lagi dalam ' . RateLimiter::availableIn($kunci) . ' detik.',
             ]);
         }
 
-        if (!Auth::attempt(['email' => $data['email'], 'password' => $data['password']], $request->boolean('ingat'))) {
+        // Akun lama boleh tetap masuk memakai email; selain itu memakai username
+        $kolom = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+        if (!Auth::attempt([$kolom => $login, 'password' => $data['password']], $request->boolean('ingat'))) {
             RateLimiter::hit($kunci, self::KUNCI_DETIK);
 
             throw ValidationException::withMessages([
-                'email' => 'Email atau kata sandi salah.',
+                'username' => 'Username atau kata sandi salah.',
             ]);
         }
 
